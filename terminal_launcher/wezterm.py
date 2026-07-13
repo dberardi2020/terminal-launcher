@@ -62,7 +62,11 @@ def _run(args: list[str], capture: bool = True) -> str:
 def _prog(slot: ResolvedSlot) -> list[str]:
     if slot.empty:
         return []  # default shell
-    return ["--", "claude", "-n", slot.name, "--model", slot.model]
+    # Resolve claude to an absolute path so WezTerm can exec it regardless of the
+    # PATH it inherits — a Dock-launched app hands WezTerm a minimal PATH that omits
+    # /opt/homebrew/bin. (empty slots run a login shell, which sources the full PATH.)
+    claude = shutil.which("claude") or "claude"
+    return ["--", claude, "-n", slot.name, "--model", slot.model]
 
 
 def _cwd(slot: ResolvedSlot) -> str:

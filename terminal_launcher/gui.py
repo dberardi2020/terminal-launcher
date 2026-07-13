@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import threading
 from pathlib import Path
 
@@ -27,6 +28,32 @@ WEB = Path(__file__).resolve().parent / "web"
 
 def _slugify(name: str) -> str:
     return name.strip().lower().replace(" ", "-")
+
+
+def _inherit_login_path() -> None:
+    """Give the process the login shell's PATH.
+
+    Apps launched from the Dock/Finder inherit a minimal PATH (no /opt/homebrew/bin),
+    so `wezterm`/`claude` aren't found. Merge in the login shell's PATH plus the usual
+    Homebrew/user bin dirs so the bundled .app behaves like a terminal launch. Safe to
+    call when already run from a terminal — the merge is idempotent.
+    """
+    dirs: list[str] = []
+    shell = os.environ.get("SHELL", "/bin/zsh")
+    try:
+        out = subprocess.run([shell, "-lic", "echo $PATH"],
+                             capture_output=True, text=True, timeout=5)
+        lines = [ln for ln in out.stdout.splitlines() if ln.strip()]
+        if lines:
+            dirs = [d for d in lines[-1].split(os.pathsep) if d]
+    except Exception:
+        pass
+    for d in ("/opt/homebrew/bin", "/opt/homebrew/sbin", "/usr/local/bin",
+              os.path.expanduser("~/.local/bin")):
+        if d not in dirs:
+            dirs.append(d)
+    existing = [d for d in os.environ.get("PATH", "").split(os.pathsep) if d]
+    os.environ["PATH"] = os.pathsep.join(existing + [d for d in dirs if d not in existing])
 
 
 class Api:
@@ -265,6 +292,7 @@ class Api:
 def run(path: Path | None = None) -> int:
     import webview  # lazy import so the CLI doesn't hard-depend on the GUI stack
 
+    _inherit_login_path()  # Dock-launched apps get a stripped PATH — restore it first
     path = path or cfg.default_config_path()
     if not path.exists():
         cfg.seed_from_example(path)
