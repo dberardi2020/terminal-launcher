@@ -47,7 +47,7 @@ The shape of the arrangement — how many panes and how they're divided on scree
 A named, saved **composition**: a layout plus a specific pane assigned to each
 slot (a slot may be intentionally empty — it launches a plain shell). Workspaces
 are the everyday entry point — you pick one and launch. (The config key is
-`workspaces`, matching the project's home under `Claude Workspaces/`.)
+`workspaces`.)
 
 ### Composer
 
