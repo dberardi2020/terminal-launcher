@@ -10,3 +10,8 @@ venv/
 # Local user config (the real config lives in ~/.config/terminal-launcher/)
 workspaces.json
 *.tmp
+
+# py2app build artifacts
+build/
+dist/
+*.app
