@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>0002 — Pane identity injection</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>0002 — Pane identity injection</h1>
+<p><strong>Status:</strong> Accepted · <strong>Date:</strong> 2026-07-10</p>
+<h2>Context</h2>
+<p>A pane&#x27;s whole point is a persistent <strong>identity</strong> — <code>name · color · target · model</code>. On launch, that identity must show up *in the running session*, not just in the config, so a glance at the screen tells you which pane is which. The predecessor did this on Windows by naming the Claude session, titling the window, and typing <code>/color &lt;name&gt;</code> into the prompt.</p>
+<p>Replicating &quot;type <code>/color</code> into a specific pane&quot; is exactly where naive approaches break: a global keystroke send (AppleScript <code>keystroke</code>, Terminal.app) goes to whatever pane has focus and needs macOS <strong>Accessibility</strong> permission — a fragile, permission-gated gamble when several panes launch at once.</p>
+<h2>Decision</h2>
+<p>Apply identity three ways, all through <code>wezterm cli</code>:</p>
+<ol><li><strong>Session name</strong> — <code>claude -n &lt;name&gt;</code> when spawning the pane.</li><li><strong>Tab title</strong> — <code>wezterm cli set-tab-title --pane-id &lt;id&gt; &lt;name&gt;</code>.</li><li><strong>Prompt color</strong> *(optional)* — inject <code>/color &lt;name&gt;</code> into the pane via</li></ol>
+<p>   <code>wezterm cli send-text --pane-id &lt;id&gt;</code>, gated by <code>--inject-color</code> /    <code>settings.injectColor</code>.</p>
+<p>Injection is <strong>addressed to a specific pane-id</strong>, so it needs no focus and no Accessibility permission — the reason WezTerm was chosen as the terminal layer (<a href="0001-terminal-layer-and-core.md">ADR 0001</a>).</p>
+<h2>The submit bug (and the fix)</h2>
+<p>Injecting <code>/color &lt;name&gt;</code> in one call <strong>types the text but does not submit it</strong> in Claude&#x27;s TUI — verified empirically: the prompt sat at <code>❯ /color cyan</code>, unexecuted. Appending <code>\r</code> to the same <code>send-text</code> payload did <strong>not</strong> help.</p>
+<p><strong>The fix is two separate <code>send-text</code> calls:</strong> first the text, then a *lone carriage return*. Two calls reliably submit where one does not. This is baked into <code>wezterm.py:_inject_color</code>:</p>
+<pre><code>send(f&quot;/color {color}&quot;)   # types the command
+time.sleep(0.4)
+send(&quot;\r&quot;)                # a SEPARATE call submits it</code></pre>
+<h2>Timing</h2>
+<p>Injection only works once the Claude TUI has started and is accepting input, so it runs after a delay (<code>settings.colorDelay</code>, default 1.5s) measured from launch. Too short and the keystrokes land before the prompt exists. If injection ever proves flaky under load, the fallback is to poll the pane (<code>wezterm cli get-text</code>) for the prompt before sending, rather than sleeping a fixed interval.</p>
+<h2>Consequences</h2>
+<ul><li>Color injection is functional and permission-free, not best-effort.</li><li>It is <strong>optional</strong> — off by default in a bare config; <code>set-tab-title</code> and the</li></ul>
+<p>  session name give identity even without it.</p>
+<ul><li>The two-step submit is load-bearing: collapsing it back into one <code>send-text</code></li></ul>
+<p>  silently reintroduces the &quot;typed but not submitted&quot; bug. Keep the calls   separate.</p>
+</main></body></html>

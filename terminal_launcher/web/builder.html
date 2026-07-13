@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terminal Launcher</title>
+<style>
+  :root{
+    --bg:#08080c; --panel:#12121b; --panel2:#0d0d15; --border:#26263a; --border2:#2f2f45;
+    --text:#e7e7ef; --muted:#9a9aae; --faint:#6b6b80; --accent:#5b8def;
+    --mono:"SF Mono",ui-monospace,"JetBrains Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;padding:26px 22px 60px;-webkit-user-select:none;user-select:none}
+  .wrap{max-width:1120px;margin:0 auto}
+  .top{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+  h1{font-size:24px;font-weight:700;letter-spacing:-.02em;margin:0}
+  .tagline{color:var(--muted);font-size:14px}
+  .badge{margin-left:auto;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:#e0796f;
+    border:1px solid #5a2f36;border-radius:6px;padding:3px 9px}
+  .accent{color:var(--accent)}
+  .lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:26px 0 10px}
+  .lbl span{color:var(--muted);letter-spacing:0;text-transform:none;font-size:12.5px;margin-left:8px}
+
+  /* gallery */
+  .gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:14px;position:relative}
+  .card.loaded{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .card .chead{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .card .cname{font-weight:650;font-size:15px}
+  .card .ctype{font-size:10px;letter-spacing:.1em;color:var(--faint);border:1px solid var(--border2);
+    border-radius:5px;padding:1px 6px;text-transform:uppercase}
+  .card .dots{margin-left:auto;position:relative}
+  .icon-btn{background:none;border:none;color:var(--faint);cursor:pointer;font-size:16px;
+    padding:2px 6px;border-radius:6px;line-height:1}
+  .icon-btn:hover{background:#ffffff10;color:var(--text)}
+  .preview{display:grid;gap:4px;height:56px;margin-bottom:10px}
+  .preview.single{grid-template-columns:1fr}
+  .preview.split{grid-template-columns:1fr 1fr}
+  .preview.quad{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .cell{border-radius:6px;background:#1a1a26;border:1px solid #ffffff08}
+  .cell.empty{background:repeating-linear-gradient(45deg,#15151f,#15151f 5px,#12121b 5px,#12121b 10px)}
+  .panelist{font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:12px;min-height:16px}
+  .crow{display:flex;align-items:center;gap:6px}
+  .btn{border:1px solid var(--border2);background:#1a1a2a;color:#dce8ff;border-radius:9px;
+    padding:7px 12px;font-size:13px;cursor:pointer;font-family:var(--sans)}
+  .btn:hover{background:#22223a}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#04122e;font-weight:600}
+  .btn.primary:hover{background:#6f9ff5}
+  .btn.ghost{background:none;border-color:transparent;color:var(--muted)}
+  .btn.ghost:hover{color:var(--text);background:#ffffff08}
+  .btn.danger{color:#e0796f}
+  .btn.launch{flex:1}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .card.new{display:flex;align-items:center;justify-content:center;color:var(--faint);
+    border-style:dashed;cursor:pointer;min-height:150px;font-size:14px}
+  .card.new:hover{color:var(--text);border-color:var(--accent)}
+
+  /* composer */
+  .composer{display:grid;grid-template-columns:1fr 300px;gap:18px;margin-top:10px;
+    background:var(--panel2);border:1px solid var(--border);border-radius:16px;padding:18px}
+  .composer-top{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .composer-top .spacer{margin-left:auto}
+  .status{font-size:12.5px;display:flex;align-items:center;gap:7px}
+  .status .d{width:8px;height:8px;border-radius:50%}
+  .st-adhoc .d{background:#d1a24f} .st-dirty .d{background:#e0796f} .st-saved .d{background:#8fd14f}
+  .toggle{display:inline-flex;gap:6px;background:#0b0b12;border:1px solid var(--border);border-radius:10px;padding:4px}
+  .toggle button{border:none;background:none;color:var(--muted);padding:7px 16px;border-radius:7px;
+    cursor:pointer;font-size:13px;display:flex;align-items:center;gap:7px}
+  .toggle button.active{background:var(--accent);color:#04122e;font-weight:600}
+  .mini{display:inline-grid;gap:2px;width:20px;height:14px;vertical-align:middle}
+  .mini i{background:currentColor;border-radius:2px;opacity:.8}
+  .slots{display:grid;gap:10px;margin-top:16px;min-height:230px}
+  .slots.single{grid-template-columns:1fr}
+  .slots.split{grid-template-columns:1fr 1fr}
+  .slots.quad{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .slot{border:1px dashed var(--border2);border-radius:12px;min-height:104px;cursor:pointer;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
+    color:var(--faint);font-size:13px;position:relative;overflow:hidden}
+  .slot:hover{border-color:var(--accent);color:var(--text)}
+  .slot.filled{border-style:solid;align-items:flex-start;justify-content:flex-start;padding:12px;color:var(--text)}
+  .slot.editing{border-style:solid;border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .slot .pos{position:absolute;right:9px;top:8px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+  .slot .bar{position:absolute;left:0;top:0;bottom:0;width:4px}
+  .slot .pn{font-weight:650;font-size:14px}
+  .slot .pt{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .slot .pm{font-size:11px;color:var(--faint);margin-top:auto;font-family:var(--mono)}
+
+  /* side — contextual: hint | slot editor | pane manager | pane form */
+  .side{border-left:1px solid var(--border);padding-left:18px;display:flex;flex-direction:column;min-height:300px}
+  .side .shead{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+  .side h3{font-size:14px;margin:0;font-weight:600}
+  .side .shead .spacer{margin-left:auto}
+  .side .hint{color:var(--faint);font-size:13px}
+  .panepick{display:flex;flex-direction:column;gap:2px;margin-bottom:16px}
+  .panerow{display:flex;align-items:center;gap:11px;padding:8px 10px;border-radius:9px;cursor:pointer;font-size:14px;font-weight:600}
+  .panerow:hover{background:#ffffff0a}
+  .panerow.sel{background:#1a2740}
+  .panerow .d{width:11px;height:11px;border-radius:50%;flex:none}
+  .panerow .sub{font-weight:400;font-size:11.5px;color:var(--faint);font-family:var(--mono)}
+  .panerow .rowact{margin-left:auto;display:flex;gap:2px}
+  .panerow.add{justify-content:flex-start;color:var(--muted);font-weight:500;border:1px dashed var(--border2)}
+  .panerow.add:hover{color:var(--text);border-color:var(--accent)}
+  .modlbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);margin:2px 0 9px}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:18px}
+  .chip{border:1px solid var(--border2);background:#14141f;color:var(--muted);border-radius:8px;
+    padding:6px 13px;font-size:12.5px;cursor:pointer;font-family:var(--sans)}
+  .chip:hover{color:var(--text)}
+  .chip.sel{background:var(--accent);border-color:var(--accent);color:#04122e;font-weight:600}
+  .editactions{display:flex;gap:8px;margin-top:auto}
+  label.fld{font-size:12px;color:var(--muted);display:block;margin:0 0 5px}
+  input.txt{width:100%;background:#0b0b12;color:var(--text);border:1px solid var(--border2);border-radius:8px;
+    padding:8px;font-size:13px;margin-bottom:14px;font-family:var(--sans)}
+  .swatchrow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
+  .swatch{width:24px;height:24px;border-radius:7px;cursor:pointer;border:2px solid transparent}
+  .swatch.sel{border-color:#fff}
+
+  /* bottom action bar */
+  .actionbar{max-width:1120px;margin:14px auto 0;display:flex;align-items:center;gap:10px;justify-content:flex-end}
+  .actionbar .fleet{margin-right:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer}
+
+  .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#14141f;
+    border:1px solid var(--accent);border-radius:12px;padding:12px 20px;font-size:14px;
+    box-shadow:0 8px 30px #000b;opacity:0;transition:.25s;pointer-events:none;z-index:60;max-width:80vw}
+  .toast.show{opacity:1} .toast.err{border-color:#e0796f}
+  .toast .mono{font-family:var(--mono);font-size:12.5px;color:var(--muted);display:block;margin-top:4px;white-space:pre}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <h1>Terminal Launcher</h1>
+    <span class="tagline">Compose a layout, drop a pane in each slot, and launch.</span>
+    <span class="badge" id="wtBadge" hidden>WezTerm not found</span>
+  </div>
+
+  <div class="lbl">Workspaces <span>Launch one directly, or click a card to load it into the composer.</span></div>
+  <div class="gallery" id="gallery"></div>
+
+  <div class="lbl">Composer</div>
+  <div class="composer">
+    <div>
+      <div class="composer-top">
+        <div class="toggle" id="toggle">
+          <button data-layout="single"><span class="mini" style="grid-template-columns:1fr"><i></i></span>Single</button>
+          <button data-layout="split"><span class="mini" style="grid-template-columns:1fr 1fr"><i></i><i></i></span>Split</button>
+          <button data-layout="quad"><span class="mini" style="grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr"><i></i><i></i><i></i><i></i></span>Quad</button>
+        </div>
+        <span class="spacer"></span>
+        <button class="btn ghost" id="panesBtn" title="Manage panes">⚙ Panes</button>
+        <div class="status" id="status"><span class="d"></span><span id="statustext">Empty composer</span></div>
+      </div>
+      <div class="slots" id="slots"></div>
+    </div>
+    <div class="side" id="side"><!-- contextual editor renders here --></div>
+  </div>
+
+  <div class="actionbar">
+    <label class="fleet"><input type="checkbox" id="fleeting" checked> close launcher after launch</label>
+    <button class="btn ghost" id="clearBtn">Clear</button>
+    <button class="btn ghost" id="revertBtn">Revert</button>
+    <button class="btn" id="saveBtn">Save as new…</button>
+    <button class="btn" id="updateBtn">Update</button>
+    <button class="btn primary" id="launchBtn">Launch</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+const CAP = {single:1, split:2, quad:4};
+const SLOT_NAMES = {
+  single: ['Full'], split: ['Left','Right'],
+  quad: ['Top-left','Top-right','Bottom-left','Bottom-right'],
+};
+const clone = o => JSON.parse(JSON.stringify(o));
+const api = () => window.pywebview.api;
+
+let STATE = {panes:{}, models:[], colors:[], workspaces:[], settings:{}, wezterm:true, defaultModel:'opus'};
+let comp = {layout:'split', slots:[null,null], loaded:null, dirty:false};
+let sideMode = 'hint';           // 'hint' | 'slot' | 'panes' | 'paneform'
+let editing = null;              // slot index for 'slot' mode
+let editModel = null;            // null = Default (pane's own default)
+let paneCtx = null;             // {id, ret} for 'paneform' mode
+
+const paneName  = id => (STATE.panes[id]||{}).name || id;
+const paneColor = id => (STATE.panes[id]||{}).hex || '#8a8a9a';
+const paneTarget= id => (STATE.panes[id]||{}).target || '';
+const modelLabel= id => id==null ? 'Default' : ((STATE.models.find(m=>m.id===id)||{}).label || id);
+const slotName  = (layout,i) => (SLOT_NAMES[layout]||[])[i] || ('Slot '+(i+1));
+
+function paneList(slots){ return slots.map(s => s ? paneName(s.pane) : '(empty)').join(' · '); }
+
+/* ---------- gallery ---------- */
+function renderGallery(){
+  const g = $('gallery'); g.innerHTML='';
+  STATE.workspaces.forEach((p,i)=>{
+    const card = document.createElement('div');
+    card.className = 'card' + (comp.loaded===p.name ? ' loaded':'');
+    const cells = p.slots.map(s=>`<div class="cell ${s?'':'empty'}" ${s?`style="background:${paneColor(s.pane)}44;border-color:${paneColor(s.pane)}"`:''}></div>`).join('');
+    card.innerHTML = `
+      <div class="chead">
+        <span class="cname"></span>
+        <span class="ctype">${p.layout}</span>
+        <span class="dots"><button class="icon-btn" title="Admin actions" data-menu="${i}">⋯</button></span>
+      </div>
+      <div class="preview ${p.layout}">${cells}</div>
+      <div class="panelist"></div>
+      <div class="crow">
+        <button class="btn primary launch" data-launch="${i}">Launch</button>
+        <button class="icon-btn" title="Move earlier" data-move="${i}:-1">◀</button>
+        <button class="icon-btn" title="Move later" data-move="${i}:1">▶</button>
+      </div>`;
+    card.querySelector('.cname').textContent = p.name;
+    card.querySelector('.panelist').textContent = paneList(p.slots);
+    g.appendChild(card);
+  });
+  const nw = document.createElement('div');
+  nw.className='card new'; nw.id='newCard'; nw.textContent='+ New';
+  g.appendChild(nw);
+}
+
+/* ---------- composer ---------- */
+function setLayout(layout, keep){
+  comp.layout = layout;
+  const cap = CAP[layout];
+  const next = [];
+  for(let i=0;i<cap;i++) next.push(keep && comp.slots[i]!==undefined ? comp.slots[i] : null);
+  comp.slots = next;
+  if(editing !== null && editing >= cap){ editing=null; if(sideMode==='slot') sideMode='hint'; }
+}
+
+function render(){
+  document.querySelectorAll('#toggle button').forEach(b=>b.classList.toggle('active', b.dataset.layout===comp.layout));
+  const box = $('slots'); box.className = 'slots '+comp.layout; box.innerHTML='';
+  comp.slots.forEach((s,i)=>{
+    const el = document.createElement('div');
+    const editcls = (sideMode==='slot' && editing===i) ? ' editing' : '';
+    if(s){
+      el.className='slot filled'+editcls;
+      el.innerHTML = `<div class="bar" style="background:${paneColor(s.pane)}"></div>
+        <div class="pos">${slotName(comp.layout,i)}</div>
+        <div class="pn"></div><div class="pt"></div><div class="pm"></div>`;
+      el.querySelector('.pn').textContent = paneName(s.pane);
+      el.querySelector('.pt').textContent = paneTarget(s.pane);
+      el.querySelector('.pm').textContent = modelLabel(s.model);
+    } else {
+      el.className='slot'+editcls;
+      el.innerHTML=`<div class="pos">${slotName(comp.layout,i)}</div><div>+ Click to assign</div>`;
+    }
+    el.onclick = ()=>startEditing(i);
+    box.appendChild(el);
+  });
+  renderSide();
+
+  const st = $('status'), stt = $('statustext');
+  st.className='status';
+  if(!comp.loaded){ st.classList.add('st-adhoc'); stt.textContent='Ad-hoc — not saved'; }
+  else if(comp.dirty){ st.classList.add('st-dirty'); stt.textContent=`${comp.loaded} — modified`; }
+  else { st.classList.add('st-saved'); stt.textContent=`${comp.loaded}`; }
+
+  $('updateBtn').disabled = !comp.loaded || !comp.dirty;
+  $('revertBtn').disabled = !comp.loaded || !comp.dirty;
+  const filled = comp.slots.some(Boolean);
+  $('launchBtn').disabled = !filled || !STATE.wezterm;
+  $('saveBtn').disabled = !filled;
+  $('wtBadge').hidden = STATE.wezterm;
+  renderGallery();
+}
+
+async function refresh(){ STATE = await api().get_state(); render(); }
+
+/* ---------- side panel: contextual editor ---------- */
+function startEditing(i){
+  editing = i; sideMode='slot';
+  editModel = comp.slots[i] ? comp.slots[i].model : null;
+  render();
+}
+
+function renderSide(){
+  const side = $('side');
+  if(sideMode==='paneform') return renderPaneForm(side);
+  if(sideMode==='panes')    return renderPaneManager(side);
+  if(sideMode==='slot' && editing!==null) return renderSlotEditor(side);
+  side.innerHTML = `<div class="shead"><h3>Compose</h3></div>
+    <p class="hint">Click a slot to assign its pane and model, or <strong>⚙ Panes</strong> to manage the pane library.</p>`;
+}
+
+function renderSlotEditor(side){
+  const cur = comp.slots[editing];
+  const panes = Object.entries(STATE.panes).map(([id,p])=>
+    `<div class="panerow ${cur&&cur.pane===id?'sel':''}" data-pane="${id}">
+       <span class="d" style="background:${p.hex}"></span><span class="nm"></span>
+       <span class="rowact"><button class="icon-btn" data-editpane="${id}" title="Edit pane">✎</button></span></div>`).join('');
+  const chips = [{id:null,label:'Default'}].concat(STATE.models).map(m=>
+    `<button class="chip ${editModel===m.id?'sel':''}" data-model="${m.id===null?'':m.id}">${m.label}</button>`).join('');
+  side.innerHTML = `
+    <div class="shead"><h3>Editing <span class="accent">${slotName(comp.layout, editing)}</span></h3></div>
+    <div class="panepick">${panes}
+      <div class="panerow add" data-newpane>＋ New pane…</div>
+    </div>
+    <div class="modlbl">Model</div>
+    <div class="chips">${chips}</div>
+    <div class="editactions">
+      <button class="btn ghost" id="clearSlot" style="flex:1">Clear slot</button>
+      <button class="btn primary" id="doneEdit" style="flex:1">Done</button>
+    </div>`;
+  side.querySelectorAll('.panerow[data-pane]').forEach(r=>{
+    r.querySelector('.nm').textContent = paneName(r.dataset.pane);
+    r.onclick = e=>{
+      if(e.target.dataset.editpane!==undefined){ openPaneForm(e.target.dataset.editpane, {mode:'slot', slot:editing}); return; }
+      comp.slots[editing] = {pane:r.dataset.pane, model:editModel};   // click-to-fill
+      comp.dirty = true; render();
+    };
+  });
+  side.querySelector('[data-newpane]').onclick = ()=>openPaneForm(null, {mode:'slot', slot:editing});
+  side.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+    editModel = c.dataset.model==='' ? null : c.dataset.model;
+    if(comp.slots[editing]){ comp.slots[editing].model = editModel; comp.dirty = true; }
+    render();
+  });
+  $('clearSlot').onclick = ()=>{ comp.slots[editing]=null; comp.dirty=true; render(); };
+  $('doneEdit').onclick  = ()=>{ editing=null; sideMode='hint'; render(); };
+}
+
+function renderPaneManager(side){
+  const rows = Object.entries(STATE.panes).map(([id,p])=>
+    `<div class="panerow" data-pane="${id}">
+       <span class="d" style="background:${p.hex}"></span>
+       <span><span class="nm"></span> <span class="sub"></span></span>
+       <span class="rowact">
+         <button class="icon-btn" data-editpane="${id}" title="Edit">✎</button>
+         <button class="icon-btn" data-delpane="${id}" title="Delete">✕</button>
+       </span></div>`).join('');
+  side.innerHTML = `
+    <div class="shead"><h3>Panes</h3><span class="spacer"></span>
+      <button class="btn ghost" id="panesDone">Done</button></div>
+    <div class="panepick">${rows || '<p class="hint">No panes yet.</p>'}
+      <div class="panerow add" data-newpane>＋ New pane…</div>
+    </div>`;
+  side.querySelectorAll('.panerow[data-pane]').forEach(r=>{
+    r.querySelector('.nm').textContent = paneName(r.dataset.pane);
+    r.querySelector('.sub').textContent = paneTarget(r.dataset.pane);
+    r.querySelectorAll('.icon-btn').forEach(b=>b.onclick=async e=>{
+      e.stopPropagation();
+      if(b.dataset.editpane!==undefined) return openPaneForm(b.dataset.editpane, {mode:'panes'});
+      if(b.dataset.delpane!==undefined){
+        if(!confirm(`Delete pane “${paneName(b.dataset.delpane)}”?`)) return;
+        const res = await api().delete_pane(b.dataset.delpane);
+        if(!res.ok) return toast(res.error, null, true);
+        await refresh(); sideMode='panes'; render();
+      }
+    });
+  });
+  side.querySelector('[data-newpane]').onclick = ()=>openPaneForm(null, {mode:'panes'});
+  $('panesDone').onclick = ()=>{ sideMode = editing!==null?'slot':'hint'; render(); };
+}
+
+function openPaneForm(id, ret){ paneCtx = {id, ret}; sideMode='paneform'; render(); }
+
+function renderPaneForm(side){
+  const {id, ret} = paneCtx;
+  const p = id ? STATE.panes[id] : {name:'', target:'~', color:(STATE.colors[0]||{}).name, model:STATE.defaultModel};
+  let sel = {color:p.color, model:p.model};
+  const swatches = STATE.colors.map(c=>
+    `<div class="swatch ${c.name===sel.color?'sel':''}" data-color="${c.name}" style="background:${c.hex}" title="${c.name}"></div>`).join('');
+  const chips = STATE.models.map(m=>
+    `<button class="chip ${m.id===sel.model?'sel':''}" data-model="${m.id}">${m.label}</button>`).join('');
+  side.innerHTML = `
+    <div class="shead"><h3>${id?'Edit pane':'New pane'}</h3></div>
+    <label class="fld">Name</label><input class="txt" id="pName" placeholder="e.g. Backend">
+    <label class="fld">Target directory</label><input class="txt" id="pTarget" placeholder="~/repos/backend">
+    <label class="fld">Color</label><div class="swatchrow" id="pColors">${swatches}</div>
+    <label class="fld">Default model</label><div class="chips" id="pModels">${chips}</div>
+    <div class="editactions">
+      ${id?'<button class="btn ghost danger" id="pDelete">Delete</button>':''}
+      <button class="btn ghost" id="pCancel" style="flex:1">Cancel</button>
+      <button class="btn primary" id="pSave" style="flex:1">Save</button>
+    </div>`;
+  $('pName').value = p.name; $('pTarget').value = p.target;
+  $('pColors').querySelectorAll('.swatch').forEach(s=>s.onclick=()=>{
+    sel.color=s.dataset.color; $('pColors').querySelectorAll('.swatch').forEach(x=>x.classList.toggle('sel',x===s));
+  });
+  $('pModels').querySelectorAll('.chip').forEach(c=>c.onclick=()=>{
+    sel.model=c.dataset.model; $('pModels').querySelectorAll('.chip').forEach(x=>x.classList.toggle('sel',x===c));
+  });
+  const back = ()=>{ sideMode = ret.mode; editing = ret.mode==='slot'?ret.slot:editing; paneCtx=null; render(); };
+  $('pCancel').onclick = back;
+  $('pSave').onclick = async ()=>{
+    const pane = {name:$('pName').value, target:$('pTarget').value, color:sel.color, model:sel.model};
+    const res = await api().save_pane(pane, id);
+    if(!res.ok) return toast(res.error, null, true);
+    await refresh();
+    // creating a pane while assigning a slot → drop it straight into that slot
+    if(!id && ret.mode==='slot'){ comp.slots[ret.slot] = {pane:res.id, model:editModel}; comp.dirty=true; }
+    sideMode = ret.mode; editing = ret.mode==='slot'?ret.slot:editing; paneCtx=null;
+    render(); toast(id?'Pane updated':'Pane created', paneName(res.id));
+  };
+  const del = $('pDelete');
+  if(del) del.onclick = async ()=>{
+    if(!confirm(`Delete pane “${p.name}”?`)) return;
+    const res = await api().delete_pane(id);
+    if(!res.ok) return toast(res.error, null, true);
+    await refresh(); back();
+  };
+}
+
+function loadWorkspace(i){
+  const p = STATE.workspaces[i];
+  comp = {layout:p.layout, slots:clone(p.slots), loaded:p.name, dirty:false};
+  editing=null; sideMode='hint'; render();
+}
+
+/* ---------- admin menu (rename / duplicate / delete) ---------- */
+function openMenu(i, btn){
+  closeAnyMenu();
+  const ws = STATE.workspaces[i];
+  const m = document.createElement('div');
+  m.className='menu';
+  m.style.cssText='position:absolute;right:0;top:26px;background:var(--panel);border:1px solid var(--border2);border-radius:10px;padding:5px;z-index:20;min-width:130px;box-shadow:0 8px 24px #000a';
+  m.innerHTML = `<button class="btn ghost" data-a="rename" style="display:block;width:100%;text-align:left">Rename…</button>
+                 <button class="btn ghost" data-a="duplicate" style="display:block;width:100%;text-align:left">Duplicate</button>
+                 <button class="btn ghost danger" data-a="delete" style="display:block;width:100%;text-align:left">Delete</button>`;
+  btn.parentElement.appendChild(m);
+  m.querySelector('[data-a="rename"]').onclick = async ()=>{
+    const n = prompt('Rename workspace:', ws.name); closeAnyMenu();
+    if(!n || n===ws.name) return;
+    const res = await api().save_workspace(n, ws.layout, ws.slots, ws.name);
+    if(!res.ok) return toast(res.error, null, true);
+    if(comp.loaded===ws.name) comp.loaded=n;
+    await refresh();
+  };
+  m.querySelector('[data-a="duplicate"]').onclick = async ()=>{
+    closeAnyMenu();
+    const res = await api().duplicate_workspace(ws.name);
+    if(!res.ok) return toast(res.error, null, true);
+    await refresh(); toast('Duplicated', res.name);
+  };
+  m.querySelector('[data-a="delete"]').onclick = async ()=>{
+    closeAnyMenu();
+    if(!confirm(`Delete workspace “${ws.name}”?`)) return;
+    const res = await api().delete_workspace(ws.name);
+    if(!res.ok) return toast(res.error, null, true);
+    if(comp.loaded===ws.name){ comp.loaded=null; comp.dirty=false; }
+    await refresh();
+  };
+}
+function closeAnyMenu(){ document.querySelectorAll('.menu').forEach(m=>m.remove()); }
+document.addEventListener('click', e=>{ if(!e.target.closest('.menu') && e.target.dataset.menu===undefined) closeAnyMenu(); });
+
+/* ---------- gallery events ---------- */
+$('gallery').addEventListener('click', async e=>{
+  const t = e.target;
+  if(t.dataset.launch!==undefined) return launch(STATE.workspaces[+t.dataset.launch]);
+  if(t.dataset.menu!==undefined) return openMenu(+t.dataset.menu, t);
+  if(t.dataset.move!==undefined){
+    const [i,dir] = t.dataset.move.split(':').map(Number);
+    const res = await api().move_workspace(STATE.workspaces[i].name, dir);
+    if(res.ok) await refresh();
+    return;
+  }
+  if(t.id==='newCard' || t.closest('#newCard')){ comp={layout:'split',slots:[null,null],loaded:null,dirty:false}; editing=null; sideMode='hint'; render(); return; }
+  const card = t.closest('.card:not(.new)');
+  if(card){ const i=[...$('gallery').children].indexOf(card); if(i>=0 && STATE.workspaces[i]) loadWorkspace(i); }
+});
+
+/* ---------- composer / action events ---------- */
+document.querySelectorAll('#toggle button').forEach(b=>b.onclick=()=>{ setLayout(b.dataset.layout,true); if(comp.loaded) comp.dirty=true; render(); });
+$('panesBtn').onclick = ()=>{ sideMode='panes'; editing=null; render(); };
+$('launchBtn').onclick = ()=>launch(comp);
+$('clearBtn').onclick = ()=>{ setLayout(comp.layout,false); comp.loaded=null; comp.dirty=false; editing=null; sideMode='hint'; render(); };
+$('revertBtn').onclick = ()=>{ const p=STATE.workspaces.find(w=>w.name===comp.loaded); if(p){ comp={layout:p.layout,slots:clone(p.slots),loaded:p.name,dirty:false}; editing=null; sideMode='hint'; render(); } };
+$('updateBtn').onclick = async ()=>{
+  const res = await api().save_workspace(comp.loaded, comp.layout, comp.slots, comp.loaded);
+  if(!res.ok) return toast(res.error, null, true);
+  comp.dirty=false; await refresh(); toast('Updated', comp.loaded);
+};
+$('saveBtn').onclick = async ()=>{
+  const n = prompt('Save as new workspace:', comp.loaded?comp.loaded+' copy':'New workspace');
+  if(!n) return;
+  const res = await api().save_workspace(n, comp.layout, comp.slots, null);
+  if(!res.ok) return toast(res.error, null, true);
+  comp.loaded=n; comp.dirty=false; await refresh(); toast('Saved', n);
+};
+
+/* ---------- launch (real) ---------- */
+async function launch(src){
+  if(!STATE.wezterm) return toast('WezTerm not found on PATH', null, true);
+  const closeAfter = $('fleeting').checked;
+  const plan = src.slots.map((s,i)=>s
+    ? `  ${slotName(src.layout,i)}: ${paneName(s.pane)}  →  ${paneTarget(s.pane)}  (${modelLabel(s.model)})`
+    : `  ${slotName(src.layout,i)}: (empty)`).join('\n');
+  toast(`Launching ${src.name||'ad-hoc'} · ${src.layout}…`, plan);
+  const res = await api().launch({name:src.name||null, layout:src.layout, slots:src.slots}, closeAfter);
+  if(!res || !res.ok) toast((res&&res.error)||'Launch failed', null, true);
+  else if(!closeAfter) toast(`Launched ${src.name||'ad-hoc'}`, plan);
+}
+
+let toastTimer;
+function toast(title, mono, isErr){
+  const t=$('toast');
+  t.className = 'toast show' + (isErr?' err':'');
+  t.textContent = title;
+  if(mono){ const s=document.createElement('span'); s.className='mono'; s.textContent=mono; t.appendChild(s); }
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'), isErr?4200:3200);
+}
+
+window.addEventListener('pywebviewready', async ()=>{ await refresh(); });
+</script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "settings": {
+    "defaultModel": "opus",
+    "injectColor": true,
+    "colorDelay": 1.5
+  },
+  "models": [
+    { "id": "opus", "label": "Opus 4.8" },
+    { "id": "sonnet", "label": "Sonnet 5" },
+    { "id": "haiku", "label": "Haiku 4.5" }
+  ],
+  "panes": {
+    "home": { "name": "Home", "color": "blue", "target": "~", "model": "sonnet" },
+    "docs": { "name": "Docs", "color": "orange", "target": "~/Documents", "model": "sonnet" },
+    "project": { "name": "Project", "color": "red", "target": "~/code/project", "model": "opus" },
+    "notes": { "name": "Notes", "color": "green", "target": "~/notes", "model": "sonnet" }
+  },
+  "workspaces": [
+    {
+      "name": "Focus",
+      "layout": "single",
+      "slots": [ { "pane": "notes" } ]
+    },
+    {
+      "name": "Docs",
+      "layout": "split",
+      "slots": [ { "pane": "home" }, { "pane": "docs" } ]
+    },
+    {
+      "name": "Everything",
+      "layout": "quad",
+      "slots": [ { "pane": "home" }, { "pane": "docs" }, { "pane": "project" }, { "pane": "notes" } ]
+    }
+  ]
+}

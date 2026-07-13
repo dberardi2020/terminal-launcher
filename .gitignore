@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# macOS
+.DS_Store
+
+# Local user config (the real config lives in ~/.config/terminal-launcher/)
+workspaces.json
+*.tmp

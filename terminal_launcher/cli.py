@@ -1,0 +1,391 @@
+"""Command-line interface for Terminal Launcher.
+
+Verbs:
+  list                     list saved workspaces
+  panes                    list configured panes
+  preview <name>           text preview of a workspace's layout
+  launch <name>            launch a workspace (add --dry-run to just print)
+  new                      interactively compose a NEW workspace and save it
+  edit <name>              interactively edit an existing workspace
+  delete <name>            remove a workspace
+  pane-new                 interactively add a new pane (terminal identity)
+  init                     create a starter config from the bundled example
+
+The `new` / `edit` / `pane-new` verbs are the fix for the old GUI's limitation:
+compositions can be created and changed from here and are written straight back
+to the config file.
+"""
+
+from __future__ import annotations
+
+import argparse
+import platform
+import sys
+from pathlib import Path
+
+from . import config as cfg
+from . import wezterm
+from .config import LAYOUT_CAPACITY
+from .model import (
+    CompositionError,
+    find_workspace,
+    resolve_workspace,
+)
+
+# ---- tiny ANSI helpers (no dependency) -------------------------------------
+
+def _supports_color() -> bool:
+    return sys.stdout.isatty()
+
+def c(text: str, code: str) -> str:
+    return f"\033[{code}m{text}\033[0m" if _supports_color() else text
+
+def bold(t): return c(t, "1")
+def dim(t): return c(t, "2")
+def cyan(t): return c(t, "36")
+def green(t): return c(t, "32")
+def yellow(t): return c(t, "33")
+def red(t): return c(t, "31")
+
+def swatch(color_name: str) -> str:
+    hexmap = {
+        "blue": "39;5;69", "orange": "38;5;179", "red": "38;5;203",
+        "purple": "38;5;141", "green": "38;5;107", "cyan": "38;5;73",
+        "pink": "38;5;175", "gray": "38;5;245",
+    }
+    code = hexmap.get(color_name, "38;5;245")
+    return c("●", code) if _supports_color() else "*"
+
+
+# ---- config loading with friendly errors ------------------------------------
+
+def _load_or_die(path: Path) -> dict:
+    if not path.exists():
+        print(red(f"No config at {path}"))
+        print(f"Run {bold('terminal-launcher init')} to create one, "
+              f"or {bold('terminal-launcher new')} to compose your first workspace.")
+        sys.exit(1)
+    return cfg.load(path)
+
+
+def _load_or_seed(path: Path) -> dict:
+    if not path.exists():
+        print(dim(f"Creating config at {path}"))
+        return cfg.seed_from_example(path)
+    return cfg.load(path)
+
+
+# ---- rendering --------------------------------------------------------------
+
+LAYOUT_GLYPH = {
+    "single": "■",
+    "split": "■■",
+    "quad": "■■/■■",
+}
+
+def _pane_summary(config: dict, ws: dict) -> str:
+    names = []
+    for i in range(LAYOUT_CAPACITY.get(ws.get("layout", "single"), 1)):
+        slots = ws.get("slots", [])
+        slot = slots[i] if i < len(slots) else None
+        pid = slot.get("pane") if isinstance(slot, dict) else None
+        if not pid:
+            names.append(dim("(empty)"))
+        else:
+            pane = config["panes"].get(pid, {})
+            names.append(swatch(pane.get("color", "gray")) + " " + pane.get("name", pid))
+    return "  ".join(names)
+
+
+def cmd_list(config: dict, args) -> int:
+    wss = config.get("workspaces", [])
+    if not wss:
+        print(dim("No workspaces yet. Run `terminal-launcher new`."))
+        return 0
+    print(bold("Workspaces"))
+    for ws in wss:
+        layout = ws.get("layout", "single")
+        head = f"  {cyan(ws['name']):<24} {dim(LAYOUT_GLYPH.get(layout, layout))}"
+        print(f"{head}  {_pane_summary(config, ws)}")
+    return 0
+
+
+def cmd_panes(config: dict, args) -> int:
+    panes = config.get("panes", {})
+    if not panes:
+        print(dim("No panes yet. Run `terminal-launcher pane-new`."))
+        return 0
+    print(bold("Panes"))
+    for pid, p in panes.items():
+        print(f"  {swatch(p.get('color','gray'))} {cyan(p.get('name', pid)):<20} "
+              f"{dim(p.get('target',''))}  {dim(p.get('model',''))}")
+    return 0
+
+
+def cmd_preview(config: dict, args) -> int:
+    ws = find_workspace(config, args.name)
+    if not ws:
+        print(red(f"No workspace named '{args.name}'"))
+        return 1
+    try:
+        slots = resolve_workspace(config, ws)
+    except CompositionError as e:
+        print(red(str(e)))
+        return 1
+    print(bold(f"{ws['name']}  ") + dim(f"({ws.get('layout')})"))
+    for s in slots:
+        if s.empty:
+            print(f"  slot {s.index + 1}: {dim('(empty shell)')}")
+        else:
+            print(f"  slot {s.index + 1}: {swatch(s.color)} {bold(s.name)}  "
+                  f"{dim(s.target)}  {yellow(s.model)}")
+    return 0
+
+
+def cmd_launch(config: dict, args) -> int:
+    ws = find_workspace(config, args.name)
+    if not ws:
+        print(red(f"No workspace named '{args.name}'"))
+        print(dim("Available: ") + ", ".join(w["name"] for w in config.get("workspaces", [])))
+        return 1
+    try:
+        slots = resolve_workspace(config, ws)
+    except CompositionError as e:
+        print(red(str(e)))
+        return 1
+
+    layout = ws.get("layout", "single")
+    inject = args.inject_color or config["settings"].get("injectColor", False)
+    delay = config["settings"].get("colorDelay", 1.5)
+    ws_name = "tl-" + ws["name"].lower().replace(" ", "-")
+
+    if args.dry_run:
+        print(bold(f"DRY RUN — {ws['name']} ({layout}) on {platform.system()}"))
+        print(dim(f"terminal = WezTerm   inject_color = {inject}"))
+        for line in wezterm.describe(layout, slots):
+            print("  " + line)
+        return 0
+
+    if not wezterm.available():
+        print(red("WezTerm not found on PATH."))
+        print(dim("Install it: brew install --cask wezterm  (macOS) / "
+                  "winget install wez.wezterm  (Windows)"))
+        return 1
+
+    print(green(f"Launching {ws['name']} ({layout})…"))
+    try:
+        wezterm.launch(layout, slots, inject_color=inject,
+                       workspace_name=ws_name, color_delay=delay)
+    except RuntimeError as e:
+        print(red(str(e)))
+        return 1
+    return 0
+
+
+# ---- interactive helpers ----------------------------------------------------
+
+def _ask(prompt: str, default: str | None = None) -> str:
+    suffix = f" [{default}]" if default else ""
+    while True:
+        val = input(f"{cyan('?')} {prompt}{suffix}: ").strip()
+        if val:
+            return val
+        if default is not None:
+            return default
+
+
+def _choose(prompt: str, options: list[tuple[str, str]], default_idx: int = 0) -> str:
+    """options = list of (value, label). Returns chosen value."""
+    print(f"{cyan('?')} {prompt}")
+    for i, (_, label) in enumerate(options):
+        marker = "›" if i == default_idx else " "
+        print(f"   {marker} {bold(str(i + 1))}. {label}")
+    while True:
+        raw = input(f"   choose 1-{len(options)} [{default_idx + 1}]: ").strip()
+        if not raw:
+            return options[default_idx][0]
+        if raw.isdigit() and 1 <= int(raw) <= len(options):
+            return options[int(raw) - 1][0]
+        print(red("   invalid choice"))
+
+
+def _choose_pane(config: dict, slot_no: int) -> dict | None:
+    panes = list(config["panes"].items())
+    opts = [("__empty__", dim("(leave empty)"))]
+    opts += [(pid, f"{swatch(p.get('color','gray'))} {p.get('name', pid)}  "
+                   f"{dim(p.get('target',''))}") for pid, p in panes]
+    choice = _choose(f"Slot {slot_no} — assign a pane", opts, default_idx=0)
+    if choice == "__empty__":
+        return None
+    model = _choose_model(config, config["panes"][choice].get("model"))
+    slot = {"pane": choice}
+    pane_default = config["panes"][choice].get("model") or config["settings"]["defaultModel"]
+    if model != pane_default:
+        slot["model"] = model
+    return slot
+
+
+def _choose_model(config: dict, current: str | None) -> str:
+    models = config.get("models", [])
+    default = current or config["settings"].get("defaultModel", "opus")
+    opts = [(m["id"], f"{m['label']}  {dim(m['id'])}") for m in models]
+    default_idx = next((i for i, (mid, _) in enumerate(opts) if mid == default), 0)
+    return _choose("Model", opts, default_idx=default_idx)
+
+
+def _compose_workspace(config: dict, existing: dict | None = None) -> dict:
+    name = _ask("Workspace name", existing.get("name") if existing else None)
+    layout = _choose("Layout", [
+        ("single", "Single  ■            — one pane, full screen"),
+        ("split", "Split   ■■          — two panes, side by side"),
+        ("quad", "Quad    ■■/■■        — four panes, 2×2 grid"),
+    ], default_idx=1 if not existing else
+       {"single": 0, "split": 1, "quad": 2}.get(existing.get("layout"), 1))
+
+    slots = []
+    for i in range(LAYOUT_CAPACITY[layout]):
+        slots.append(_choose_pane(config, i + 1))
+    return {"name": name, "layout": layout, "slots": slots}
+
+
+def cmd_new(config: dict, path: Path, args) -> int:
+    if not config.get("panes"):
+        print(yellow("No panes configured yet — let's create one first.\n"))
+        _interactive_pane(config)
+    ws = _compose_workspace(config)
+    if find_workspace(config, ws["name"]):
+        print(red(f"A workspace named '{ws['name']}' already exists. "
+                  f"Use `edit` or pick another name."))
+        return 1
+    config["workspaces"].append(ws)
+    cfg.save(path, config)
+    print(green(f"\nSaved workspace '{ws['name']}'."))
+    cmd_preview(config, argparse.Namespace(name=ws["name"]))
+    return 0
+
+
+def cmd_edit(config: dict, path: Path, args) -> int:
+    ws = find_workspace(config, args.name)
+    if not ws:
+        print(red(f"No workspace named '{args.name}'"))
+        return 1
+    print(dim(f"Editing '{ws['name']}' — press enter to keep current values.\n"))
+    updated = _compose_workspace(config, existing=ws)
+    idx = config["workspaces"].index(ws)
+    config["workspaces"][idx] = updated
+    cfg.save(path, config)
+    print(green(f"\nUpdated workspace '{updated['name']}'."))
+    return 0
+
+
+def cmd_delete(config: dict, path: Path, args) -> int:
+    ws = find_workspace(config, args.name)
+    if not ws:
+        print(red(f"No workspace named '{args.name}'"))
+        return 1
+    confirm = input(f"Delete workspace '{ws['name']}'? [y/N] ").strip().lower()
+    if confirm != "y":
+        print(dim("Cancelled."))
+        return 0
+    config["workspaces"].remove(ws)
+    cfg.save(path, config)
+    print(green(f"Deleted '{ws['name']}'."))
+    return 0
+
+
+def _interactive_pane(config: dict) -> dict:
+    name = _ask("Pane name (e.g. Home, Docs, Backend)")
+    pid = name.strip().lower().replace(" ", "-")
+    target = _ask("Target directory", "~")
+    color = _choose("Color", [(k, f"{swatch(k)} {k}") for k in cfg.COLORS.keys()])
+    model = _choose_model(config, None)
+    pane = {"name": name, "color": color, "target": target, "model": model}
+    config["panes"][pid] = pane
+    return pane
+
+
+def cmd_pane_new(config: dict, path: Path, args) -> int:
+    _interactive_pane(config)
+    cfg.save(path, config)
+    print(green("Saved pane."))
+    return 0
+
+
+def cmd_init(config: dict, path: Path, args) -> int:
+    if path.exists():
+        print(dim(f"Config already exists at {path}"))
+        return 0
+    cfg.seed_from_example(path)
+    print(green(f"Created starter config at {path}"))
+    print(dim("Edit it, or run `terminal-launcher new` to compose interactively."))
+    return 0
+
+
+# ---- argparse wiring --------------------------------------------------------
+
+def build_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(
+        prog="terminal-launcher",
+        description="Compose and launch tiled Claude Code sessions.")
+    ap.add_argument("--config", type=str, default=None,
+                    help="path to the workspaces config JSON")
+    sub = ap.add_subparsers(dest="cmd")
+
+    sub.add_parser("list", help="list saved workspaces")
+    sub.add_parser("panes", help="list configured panes")
+    sub.add_parser("init", help="create a starter config")
+    sub.add_parser("new", help="interactively compose a new workspace")
+    sub.add_parser("pane-new", help="interactively add a pane")
+    sub.add_parser("gui", help="open the visual composer (native window)")
+
+    pv = sub.add_parser("preview", help="text preview of a workspace")
+    pv.add_argument("name")
+
+    lp = sub.add_parser("launch", help="launch a workspace")
+    lp.add_argument("name")
+    lp.add_argument("--dry-run", action="store_true",
+                    help="print what would launch, don't open anything")
+    lp.add_argument("--inject-color", action="store_true",
+                    help="type /color into each session (needs Accessibility)")
+
+    ed = sub.add_parser("edit", help="interactively edit a workspace")
+    ed.add_argument("name")
+    dl = sub.add_parser("delete", help="delete a workspace")
+    dl.add_argument("name")
+    return ap
+
+
+def main(argv: list[str] | None = None) -> int:
+    ap = build_parser()
+    args = ap.parse_args(argv)
+    path = Path(args.config).expanduser() if args.config else cfg.default_config_path()
+
+    if not args.cmd:
+        ap.print_help()
+        return 0
+
+    # Commands that must not fail on a missing config (they create/seed it):
+    if args.cmd == "init":
+        return cmd_init({}, path, args)
+    if args.cmd == "gui":
+        from . import gui
+        return gui.run(path)
+    if args.cmd in ("new", "pane-new"):
+        config = _load_or_seed(path)
+        return cmd_new(config, path, args) if args.cmd == "new" \
+            else cmd_pane_new(config, path, args)
+
+    config = _load_or_die(path)
+    dispatch = {
+        "list": lambda: cmd_list(config, args),
+        "panes": lambda: cmd_panes(config, args),
+        "preview": lambda: cmd_preview(config, args),
+        "launch": lambda: cmd_launch(config, args),
+        "edit": lambda: cmd_edit(config, path, args),
+        "delete": lambda: cmd_delete(config, path, args),
+    }
+    try:
+        return dispatch[args.cmd]()
+    except KeyboardInterrupt:
+        print("\n" + dim("Cancelled."))
+        return 130

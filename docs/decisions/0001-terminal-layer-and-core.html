@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>0001 — Terminal layer: WezTerm + a thin Python core</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>0001 — Terminal layer: WezTerm + a thin Python core</h1>
+<p><strong>Status:</strong> Accepted · <strong>Date:</strong> 2026-07-10</p>
+<h2>Context</h2>
+<p>Rebuilding an earlier Windows/WPF launcher on macOS forced the single load-bearing question the original never had to answer portably: <strong>how does &quot;compose an arrangement of terminals and launch them&quot; actually work?</strong> The predecessor&#x27;s launch-mechanism analysis split the rebuild into two independent decisions — the <strong>terminal layer</strong> (what spawns and arranges terminals) and the <strong>UI toolkit</strong> (what the composer is written in). This ADR records the terminal layer; the UI is <a href="0003-ui-cli-first-visual-composer-deferred.md">ADR 0003</a>.</p>
+<p>The environment at decision time: macOS with <code>python3</code> (3.14, Homebrew) and Terminal.app only — no tmux, iTerm2, or WezTerm preinstalled. A &quot;someday Windows build&quot; is a stated goal, not aspirational.</p>
+<h2>Options considered</h2>
+<p><strong>Terminal layer</strong> — real OS windows vs. multiplexer panes, and how scriptable:</p>
+<table><thead><tr><th>Option</th><th>Layout model</th><th>Scripted spawn</th><th>Cross-platform</th></tr></thead><tbody><tr><td><strong>WezTerm</strong></td><td>native splits *or* OS windows</td><td>Excellent — <code>wezterm cli spawn</code> / <code>split-pane</code> / <code>send-text</code> return pane-ids</td><td><strong>Yes</strong> (same <code>wezterm cli</code> on Mac + Windows)</td></tr><tr><td>tmux</td><td>panes in one window</td><td>Excellent — <code>split-window</code>, <code>send-keys</code></td><td>Yes, but single-window feel</td></tr><tr><td>iTerm2</td><td>native splits + windows</td><td>Good — AppleScript / Python API</td><td><strong>Mac-only</strong></td></tr><tr><td>kitty</td><td>native splits</td><td>Good — <code>kitty @</code> remote control</td><td>Yes</td></tr><tr><td>Terminal.app</td><td>OS windows</td><td>Limited — AppleScript, no real splits</td><td><strong>Mac-only</strong>, weakest</td></tr></tbody></table>
+<p><strong>Core language</strong> — the orchestration layer that reads config, resolves a workspace, and emits terminal-layer commands. Python was chosen for the *core* (not the plumbing): already on the Mac, no build step, one codebase for Mac + Windows, JSON in the stdlib, and it shells out to any terminal layer cleanly.</p>
+<h2>Decision</h2>
+<p><strong>WezTerm as the terminal layer, driven by a thin Python core.</strong></p>
+<p>An early spike built against Terminal.app (zero-install, real OS windows like the original) but it is the weakest for programmatic layout and needs a separate, fragile keystroke path per platform. WezTerm was chosen instead and the Terminal.app path was dropped.</p>
+<h2>Rationale</h2>
+<ul><li><strong>Deterministic scripted layout.</strong> <code>wezterm cli spawn</code> / <code>split-pane</code> return</li></ul>
+<p>  pane-ids, so tiling is exact and repeatable — not a geometry guess.</p>
+<ul><li><strong>Reliable, native identity.</strong> <code>send-text --pane-id</code> delivers text to a</li></ul>
+<p>  *specific* pane without focus or Accessibility permissions. That is what makes   <code>/color</code> injection functional rather than a keystroke gamble (see   <a href="0002-identity-injection.md">ADR 0002</a>). Tab titles are first-class.</p>
+<ul><li><strong>Real cross-platform parity.</strong> <code>wezterm cli</code> is identical on macOS and Windows,</li></ul>
+<p>  so the &quot;someday Windows&quot; build reuses the *same* commands instead of   reintroducing the WPF-shaped platform split. This is the decisive advantage over   the Mac-only options.</p>
+<ul><li><strong>Thin Python core keeps the plumbing swappable.</strong> The core resolves a workspace</li></ul>
+<p>  into platform-agnostic <code>ResolvedSlot</code>s; only <code>wezterm.py</code> knows about WezTerm. A   different terminal layer would be one new module.</p>
+<p>The layout → split plan the launcher emits:</p>
+<ul><li><code>single</code> → one pane.</li><li><code>split</code> → pane 0, then split pane 0 to the <strong>right</strong>.</li><li><code>quad</code> → pane 0; split <strong>right</strong> of 0; split <strong>below</strong> 0; split <strong>below</strong> 1 → balanced 2×2.</li></ul>
+<h2>Consequences</h2>
+<ul><li>WezTerm becomes a hard dependency (<code>brew install --cask wezterm</code>). Acceptable:</li></ul>
+<p>  it is the source of the reliability and portability above.</p>
+<ul><li>The core never manages screen geometry — WezTerm owns tiling. <code>model.py</code> carries</li></ul>
+<p>  no window-rect math.</p>
+<ul><li>Verified end-to-end on macOS (spawn, tile, name, title, color). Windows is</li></ul>
+<p>  unverified but built on the same CLI surface.</p>
+<ul><li>If WezTerm is ever unavailable, the fallback is a *new launcher module* (tmux is</li></ul>
+<p>  the most portable candidate), not a rewrite of the core.</p>
+<ul><li><strong>Revisited by <a href="0004-heterogeneous-panes-and-window-placement.md">ADR 0004</a>:</strong></li></ul>
+<p>  WezTerm&#x27;s in-terminal tiling cannot hold GUI apps (Chrome, Finder). Supporting   *heterogeneous* workspaces reintroduces an OS-window placement layer for the   mixed case — the all-terminal path keeps WezTerm.</p>
+</main></body></html>

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>0004 — Heterogeneous panes &amp; window placement</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>0004 — Heterogeneous panes &amp; window placement</h1>
+<p><strong>Status:</strong> Proposed (future direction — not yet built) · <strong>Date:</strong> 2026-07-13</p>
+<h2>Context</h2>
+<p>Today every pane is a Claude terminal, tiled *inside one WezTerm window*. A wanted future workflow is a <strong>mixed</strong> workspace — a Claude terminal alongside a <strong>Chrome</strong> window, a <strong>Finder</strong> window, or any other app. WezTerm cannot do this: a multiplexer pane can only run a *terminal program*, never a GUI app. So mixed workspaces are outside WezTerm&#x27;s model entirely, and this needs a different layout mechanism. This ADR records the direction; it revisits the terminal-layer call in <a href="0001-terminal-layer-and-core.md">ADR 0001</a>.</p>
+<h2>The two layout models</h2>
+<p>There are two fundamentally different ways to tile a screen:</p>
+<table><thead><tr><th>Model</th><th>Tiles</th><th>Holds Chrome / Finder?</th></tr></thead><tbody><tr><td><strong>In-terminal multiplexer</strong> (WezTerm — today)</td><td>panes inside one terminal window</td><td>No — a pane runs a terminal program, not a GUI app</td></tr><tr><td><strong>OS-window tiler</strong></td><td>independent application windows on screen</td><td>Yes — any window can be placed</td></tr></tbody></table>
+<p>WezTerm is the first. The predecessor was the second (Windows WPF arranging OS windows across virtual desktops) — which would have supported a Chrome pane natively. Choosing WezTerm (ADR 0001) traded OS-window generality for terminal-tiling wins: clean identity, deterministic splits, and — importantly — no Accessibility permission. Heterogeneous panes are the requirement that pulls back toward the OS-window model for the mixed case.</p>
+<h2>The unavoidable constraint</h2>
+<p>Positioning an *arbitrary* app&#x27;s window on macOS (Chrome, Finder) goes through the <strong>Accessibility API</strong> (<code>AXPosition</code> / <code>AXSize</code>). There is <strong>no permission-free path</strong> — unlike WezTerm, which we drive through a CLI, arbitrary apps expose no such control surface. So any mixed workspace implies an Accessibility grant. This is the same cost the original Windows app effectively paid via window management.</p>
+<h2>Decision (direction)</h2>
+<p>Two additive changes; neither breaks the all-terminal path.</p>
+<h3>1. Typed panes — a launcher registry</h3>
+<p>Generalize a pane from &quot;always Claude&quot; to a <code>kind</code> with a launcher per kind:</p>
+<ul><li><code>claude</code>  → open a WezTerm window running <code>claude -n &lt;name&gt; --model &lt;model&gt;</code></li><li><code>app</code>     → <code>open -a &quot;&lt;Application&gt;&quot;</code> (e.g. Chrome)</li><li><code>path</code>    → <code>open &lt;dir&gt;</code> → a Finder window</li><li><code>url</code>     → open a browser at a URL</li><li><code>command</code> → any GUI/CLI program</li></ul>
+<p>The config gains a per-pane <code>&quot;kind&quot;</code> (default <code>claude</code>, so existing configs are unchanged). <code>ResolvedSlot</code> grows a <code>kind</code> plus each kind&#x27;s &quot;how to launch / how to find its window&quot; behaviour.</p>
+<h3>2. A screen-region window-placement layer</h3>
+<p>The layout (single/split/quad) computes a <strong>rectangle per slot</strong> on the target display. After launching each slot&#x27;s window, a platform *placer* moves it into its rectangle. WezTerm windows are placed exactly like Chrome windows — WezTerm stops owning the layout and becomes just one window type. (This reintroduces the screen-rect math <code>model.py</code> had before it was stripped for WezTerm.)</p>
+<p>macOS placer options, trading dependency vs. who holds the permission:</p>
+<table><thead><tr><th>Placer</th><th>Extra install</th><th>Who needs Accessibility</th></tr></thead><tbody><tr><td><strong>pyobjc + AXUIElement</strong></td><td>none (self-contained)</td><td>*our* process</td></tr><tr><td><strong><code>yabai</code></strong> (shell out)</td><td>yabai</td><td>yabai (move/resize works without disabling SIP)</td></tr><tr><td><strong>Hammerspoon</strong> (shell out)</td><td>Hammerspoon</td><td>Hammerspoon</td></tr></tbody></table>
+<p>Delegating to <code>yabai</code>/Hammerspoon is attractive: it keeps the Accessibility grant <strong>off</strong> our fleeting launcher (which exits right after handoff) and on a dedicated window-manager tool.</p>
+<h2>Recommended shape — hybrid, not all-or-nothing</h2>
+<ul><li><strong>All-terminal workspace</strong> → keep today&#x27;s WezTerm internal tiling. Common case,</li></ul>
+<p>  proven, needs no Accessibility. Do not regress it.</p>
+<ul><li><strong>Mixed workspace</strong> (any non-<code>claude</code> pane) → use the OS-window placer: every</li></ul>
+<p>  pane, including terminals (now standalone WezTerm windows), is launched and   positioned into its rectangle.</p>
+<p>The <code>kind</code> field decides which engine a workspace uses. The UI, config, identity model, and fleeting-launch flow are unchanged; only a launcher-per-kind and a placer module are added.</p>
+<p><strong>Identity generalizes cleanly.</strong> A pane stays a &quot;who/where&quot;: a Chrome pane&#x27;s target is a URL/profile, a Finder pane&#x27;s is a directory. Name + color still apply (window title where the app allows; color is best-effort per app).</p>
+<p><strong>Windows parity.</strong> Same shape — the placer is per-platform (macOS = AX / yabai; Windows = <code>SetWindowPos</code> via pywin32, or PowerToys FancyZones), but the typed-pane model and rectangle math are shared. Consistent with ADR 0001&#x27;s thin-client stance.</p>
+<h2>Consequences</h2>
+<ul><li>Mixed workspaces require an Accessibility grant — ideally delegated to</li></ul>
+<p>  <code>yabai</code>/Hammerspoon rather than held by the launcher.</p>
+<ul><li>Reintroduces an OS-window tiling layer (screen rectangles + a placer), partially</li></ul>
+<p>  revisiting ADR 0001 — but only for heterogeneous workspaces; the all-terminal   path keeps WezTerm&#x27;s advantages.</p>
+<ul><li>Matching &quot;the window we just launched&quot; to its Accessibility reference (timing,</li></ul>
+<p>  apps that reuse existing windows) is the real implementation risk; prototype the   placer against Chrome + Finder before committing.</p>
+<ul><li>Not scheduled. Recorded so the path is known and ADR 0001 carries an honest</li></ul>
+<p>  annotation.</p>
+</main></body></html>
