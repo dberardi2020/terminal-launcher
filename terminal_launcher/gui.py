@@ -13,13 +13,15 @@ goes through this `Api` to the one `workspaces.json`. See docs/decisions/0003.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import subprocess
 import threading
 from pathlib import Path
 
 from . import config as cfg
-from . import wezterm
+from . import diag
+from . import backend
 from .config import COLORS, LAYOUT_CAPACITY, color_hex
 from .model import CompositionError, compact, resolve_workspace
 
@@ -62,9 +64,50 @@ class Api:
     def __init__(self, path: Path):
         self.path = path
         self._window = None
+        self._log = diag.get_logger()
+        # Wrap every public bridge method so an exception crossing into the WebView
+        # is logged with a traceback — pywebview otherwise turns it into a silent
+        # rejected JS promise the composer never surfaces.
+        import functools
+        for name, fn in list(vars(Api).items()):
+            if name.startswith("_") or name == "bind" or not callable(fn):
+                continue
+            bound = getattr(self, name)
+
+            @functools.wraps(bound)
+            def traced(*a, __fn=bound, __name=name, **k):
+                try:
+                    return __fn(*a, **k)
+                except Exception:
+                    self._log.exception("api.%s failed", __name)
+                    raise
+            setattr(self, name, traced)
 
     def bind(self, window) -> None:
         self._window = window
+
+    # -- diagnostics ----------------------------------------------------------
+
+    def log_client(self, level: str, message: str, stack: str | None = None) -> None:
+        """Record a log/error line forwarded from the WebView JS."""
+        lvl = {"error": logging.ERROR, "warn": logging.WARNING}.get(
+            (level or "").lower(), logging.INFO)
+        text = f"[client] {message}" + (f"\n{stack}" if stack else "")
+        self._log.log(lvl, text)
+
+    def get_diagnostics(self) -> dict:
+        return {"ok": True, "path": str(diag.log_path()), "tail": diag.read_tail(300)}
+
+    def export_logs(self) -> dict:
+        """Reveal the log file in Finder (the 'export' path) and return its path."""
+        p = diag.log_path()
+        if not p.exists():
+            return {"ok": False, "error": "No log file yet."}
+        try:
+            subprocess.run(["open", "-R", str(p)])
+        except Exception:
+            self._log.exception("reveal log failed")
+        return {"ok": True, "path": str(p)}
 
     # -- helpers --------------------------------------------------------------
 
@@ -132,7 +175,8 @@ class Api:
             "colors": [{"name": n, "hex": h} for n, h in COLORS.items()],
             "workspaces": workspaces,
             "settings": settings,
-            "wezterm": wezterm.available(),
+            "wezterm": backend.available(),   # JS gate key (terminal availability)
+            "terminalName": backend.name(),
             "defaultModel": default_model,
         }
 
@@ -255,12 +299,15 @@ class Api:
         if self._window is None:
             return {"ok": False}
         import webview  # lazy — same GUI stack the window came from
+        # Newer pywebview renamed the constant; fall back for older builds.
+        folder = getattr(getattr(webview, "FileDialog", None), "FOLDER", None)
+        if folder is None:
+            folder = webview.FOLDER_DIALOG
         init = os.path.expanduser(start or "~")
         if not os.path.isdir(init):
             init = os.path.expanduser("~")
         try:
-            result = self._window.create_file_dialog(
-                webview.FOLDER_DIALOG, directory=init)
+            result = self._window.create_file_dialog(folder, directory=init)
         except Exception as e:
             return {"ok": False, "error": str(e)}
         if not result:
@@ -293,8 +340,8 @@ class Api:
         worker thread avoids both and closes the window cleanly when done.
         """
         config = self._load()
-        if not wezterm.available():
-            return {"ok": False, "error": "WezTerm not found on PATH."}
+        if not backend.available():
+            return {"ok": False, "error": f"{backend.name()} not available."}
         layout = comp.get("layout", "single")
         flip = bool(comp.get("flip"))
         ws = {"name": comp.get("name") or "adhoc", "layout": layout,
@@ -313,17 +360,22 @@ class Api:
         ws_name = "tl-" + _slugify(ws["name"])
 
         def worker() -> None:
+            filled = sum(1 for s in slots if not s.empty)
+            self._log.info("launch start: ws=%s layout=%s flip=%s filled=%d",
+                           ws_name, layout, flip, filled)
             try:
-                wezterm.launch(
+                backend.launch(
                     layout, slots,
                     inject_color=settings.get("injectColor", False),
                     workspace_name=ws_name,
                     color_delay=settings.get("colorDelay", 1.5),
                     flip=flip,
                 )
-            except RuntimeError as e:
+            except Exception as e:  # broadened: worker-thread errors otherwise vanish
+                self._log.exception("launch failed: ws=%s", ws_name)
                 self._toast(f"Launch failed: {e}", True)
                 return
+            self._log.info("launch ok: ws=%s", ws_name)
             if close_after:
                 # Fleeting: the launcher goes away once the launch is fully handed
                 # off. The WezTerm GUI + Claude sessions are independent processes
@@ -339,6 +391,7 @@ class Api:
 def run(path: Path | None = None) -> int:
     import webview  # lazy import so the CLI doesn't hard-depend on the GUI stack
 
+    diag.setup()
     _inherit_login_path()  # Dock-launched apps get a stripped PATH — restore it first
     path = path or cfg.default_config_path()
     if not path.exists():

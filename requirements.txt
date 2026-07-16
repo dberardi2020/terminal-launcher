@@ -1,3 +1,7 @@
-# Runtime dependency for the visual composer (`terminal-launcher gui`).
-# The CLI (list/launch/new/edit/…) is standard-library only.
+# Runtime dependencies.
+#   pywebview — the visual composer (`terminal-launcher gui`)
+#   iterm2    — macOS terminal backend (drives iTerm2's Python API)
+# The CLI (list/launch/new/edit/…) plus the WezTerm backend are stdlib-only;
+# iterm2 is only needed for the macOS iTerm2 backend.
 pywebview>=6.2
+iterm2>=2.7

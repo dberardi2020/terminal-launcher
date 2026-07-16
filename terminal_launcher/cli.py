@@ -23,8 +23,9 @@ import platform
 import sys
 from pathlib import Path
 
+from . import backend
 from . import config as cfg
-from . import wezterm
+from . import diag
 from .config import LAYOUT_CAPACITY
 from .model import (
     CompositionError,
@@ -170,20 +171,19 @@ def cmd_launch(config: dict, args) -> int:
 
     if args.dry_run:
         print(bold(f"DRY RUN — {ws['name']} ({layout}{flip_note}) on {platform.system()}"))
-        print(dim(f"terminal = WezTerm   inject_color = {inject}"))
-        for line in wezterm.describe(layout, slots, flip):
+        print(dim(f"terminal = {backend.name()}   inject_color = {inject}"))
+        for line in backend.describe(layout, slots, flip):
             print("  " + line)
         return 0
 
-    if not wezterm.available():
-        print(red("WezTerm not found on PATH."))
-        print(dim("Install it: brew install --cask wezterm  (macOS) / "
-                  "winget install wez.wezterm  (Windows)"))
+    if not backend.available():
+        print(red(f"{backend.name()} not available."))
+        print(dim("Install it: " + backend.install_hint()))
         return 1
 
     print(green(f"Launching {ws['name']} ({layout}{flip_note})…"))
     try:
-        wezterm.launch(layout, slots, inject_color=inject,
+        backend.launch(layout, slots, inject_color=inject,
                        workspace_name=ws_name, color_delay=delay, flip=flip)
     except RuntimeError as e:
         print(red(str(e)))
@@ -326,6 +326,16 @@ def cmd_pane_new(config: dict, path: Path, args) -> int:
     return 0
 
 
+def cmd_logs(args) -> int:
+    p = diag.log_path()
+    print(bold(f"Log file: {p}"))
+    if not p.exists():
+        print(dim("(no log yet — run the GUI or a launch first)"))
+        return 0
+    print(diag.read_tail(args.lines))
+    return 0
+
+
 def cmd_init(config: dict, path: Path, args) -> int:
     if path.exists():
         print(dim(f"Config already exists at {path}"))
@@ -353,6 +363,9 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("pane-new", help="interactively add a pane")
     sub.add_parser("gui", help="open the visual composer (native window)")
 
+    lg = sub.add_parser("logs", help="print the diagnostics log (path + recent lines)")
+    lg.add_argument("--lines", type=int, default=120, help="trailing lines to show")
+
     pv = sub.add_parser("preview", help="text preview of a workspace")
     pv.add_argument("name")
 
@@ -374,10 +387,14 @@ def main(argv: list[str] | None = None) -> int:
     ap = build_parser()
     args = ap.parse_args(argv)
     path = Path(args.config).expanduser() if args.config else cfg.default_config_path()
+    diag.setup()
 
     if not args.cmd:
         ap.print_help()
         return 0
+
+    if args.cmd == "logs":
+        return cmd_logs(args)
 
     # Commands that must not fail on a missing config (they create/seed it):
     if args.cmd == "init":
