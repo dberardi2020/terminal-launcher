@@ -26,6 +26,7 @@ strong{font-weight:650}
 </style></head><body><main class="wrap">
 <h1>0004 — Heterogeneous panes &amp; window placement</h1>
 <p><strong>Status:</strong> Proposed (future direction — not yet built) · <strong>Date:</strong> 2026-07-13</p>
+<blockquote><p><strong>Scoped by <a href="0005-combo-flip-and-partial-compaction.md">ADR 0005</a>:</strong> partial <em>all-terminal</em> layouts are handled in-engine there by compaction — no Accessibility grant needed. This ADR now covers only genuinely <strong>mixed</strong> (non-<code>claude</code>) workspaces, not &quot;a workspace with empty slots.&quot;</p></blockquote>
 <h2>Context</h2>
 <p>Today every pane is a Claude terminal, tiled *inside one WezTerm window*. A wanted future workflow is a <strong>mixed</strong> workspace — a Claude terminal alongside a <strong>Chrome</strong> window, a <strong>Finder</strong> window, or any other app. WezTerm cannot do this: a multiplexer pane can only run a *terminal program*, never a GUI app. So mixed workspaces are outside WezTerm&#x27;s model entirely, and this needs a different layout mechanism. This ADR records the direction; it revisits the terminal-layer call in <a href="0001-terminal-layer-and-core.md">ADR 0001</a>.</p>
 <h2>The two layout models</h2>

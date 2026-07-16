@@ -28,6 +28,7 @@ from . import wezterm
 from .config import LAYOUT_CAPACITY
 from .model import (
     CompositionError,
+    compact,
     find_workspace,
     resolve_workspace,
 )
@@ -80,6 +81,7 @@ def _load_or_seed(path: Path) -> dict:
 LAYOUT_GLYPH = {
     "single": "■",
     "split": "■■",
+    "combo": "█|▪▪",
     "quad": "■■/■■",
 }
 
@@ -132,10 +134,11 @@ def cmd_preview(config: dict, args) -> int:
     except CompositionError as e:
         print(red(str(e)))
         return 1
-    print(bold(f"{ws['name']}  ") + dim(f"({ws.get('layout')})"))
+    flip_note = ", flipped" if ws.get("flip") else ""
+    print(bold(f"{ws['name']}  ") + dim(f"({ws.get('layout')}{flip_note})"))
     for s in slots:
         if s.empty:
-            print(f"  slot {s.index + 1}: {dim('(empty shell)')}")
+            print(f"  slot {s.index + 1}: {dim('(empty — dropped at launch)')}")
         else:
             print(f"  slot {s.index + 1}: {swatch(s.color)} {bold(s.name)}  "
                   f"{dim(s.target)}  {yellow(s.model)}")
@@ -154,15 +157,21 @@ def cmd_launch(config: dict, args) -> int:
         print(red(str(e)))
         return 1
 
-    layout = ws.get("layout", "single")
+    flip = bool(ws.get("flip"))
+    if not any(not s.empty for s in slots):
+        print(red("Nothing to launch — every slot is empty."))
+        return 1
+    # Partial layouts compact to the filled count (no empty shells); see ADR 0004.
+    layout, slots = compact(slots)
     inject = args.inject_color or config["settings"].get("injectColor", False)
     delay = config["settings"].get("colorDelay", 1.5)
     ws_name = "tl-" + ws["name"].lower().replace(" ", "-")
+    flip_note = ", flipped" if flip else ""
 
     if args.dry_run:
-        print(bold(f"DRY RUN — {ws['name']} ({layout}) on {platform.system()}"))
+        print(bold(f"DRY RUN — {ws['name']} ({layout}{flip_note}) on {platform.system()}"))
         print(dim(f"terminal = WezTerm   inject_color = {inject}"))
-        for line in wezterm.describe(layout, slots):
+        for line in wezterm.describe(layout, slots, flip):
             print("  " + line)
         return 0
 
@@ -172,10 +181,10 @@ def cmd_launch(config: dict, args) -> int:
                   "winget install wez.wezterm  (Windows)"))
         return 1
 
-    print(green(f"Launching {ws['name']} ({layout})…"))
+    print(green(f"Launching {ws['name']} ({layout}{flip_note})…"))
     try:
         wezterm.launch(layout, slots, inject_color=inject,
-                       workspace_name=ws_name, color_delay=delay)
+                       workspace_name=ws_name, color_delay=delay, flip=flip)
     except RuntimeError as e:
         print(red(str(e)))
         return 1
@@ -238,14 +247,20 @@ def _compose_workspace(config: dict, existing: dict | None = None) -> dict:
     layout = _choose("Layout", [
         ("single", "Single  ■            — one pane, full screen"),
         ("split", "Split   ■■          — two panes, side by side"),
+        ("combo", "Combo   █|▪▪        — one full pane + two stacked"),
         ("quad", "Quad    ■■/■■        — four panes, 2×2 grid"),
     ], default_idx=1 if not existing else
-       {"single": 0, "split": 1, "quad": 2}.get(existing.get("layout"), 1))
+       {"single": 0, "split": 1, "combo": 2, "quad": 3}.get(existing.get("layout"), 1))
 
     slots = []
     for i in range(LAYOUT_CAPACITY[layout]):
         slots.append(_choose_pane(config, i + 1))
-    return {"name": name, "layout": layout, "slots": slots}
+    ws = {"name": name, "layout": layout, "slots": slots}
+    if layout in ("split", "combo"):  # horizontal flip only means anything here
+        default_flip = "y" if (existing and existing.get("flip")) else "n"
+        if _ask("Flip horizontally? (y/n)", default_flip).lower().startswith("y"):
+            ws["flip"] = True
+    return ws
 
 
 def cmd_new(config: dict, path: Path, args) -> int:

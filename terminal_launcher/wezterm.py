@@ -20,7 +20,12 @@ first pane goes through gui-startup instead.
 Layout → split plan (slot 0 is the first pane; later slots split off an earlier one):
   single : [P0]
   split  : [P0] + P1 to the right of P0
+  combo  : [P0] full-height left; P1 splits right of P0; P2 splits below P1
   quad   : [P0] + P1 right of P0, P2 below P0, P3 below P1  → balanced 2×2
+
+A workspace may set "flip": true to mirror horizontally (split/combo only) — the
+first horizontal split direction is swapped (right↔left), so the primary pane
+lands on the opposite side. Vertical splits are unaffected.
 """
 
 from __future__ import annotations
@@ -39,8 +44,21 @@ from .model import ResolvedSlot
 SPLIT_PLAN: dict[str, list[tuple[str, int]]] = {
     "single": [],
     "split": [("right", 0)],
+    "combo": [("right", 0), ("bottom", 1)],
     "quad": [("right", 0), ("bottom", 0), ("bottom", 1)],
 }
+
+# Layouts whose horizontal orientation "flip" can mirror.
+_FLIPPABLE = {"split", "combo"}
+_FLIP_DIR = {"right": "left", "left": "right"}
+
+
+def _plan(layout: str, flip: bool = False) -> list[tuple[str, int]]:
+    """The split plan for a layout, horizontally mirrored when flip is set."""
+    plan = SPLIT_PLAN.get(layout, [])
+    if flip and layout in _FLIPPABLE:
+        plan = [(_FLIP_DIR.get(d, d), src) for d, src in plan]
+    return plan
 
 CONFIG_ASSET = Path(__file__).resolve().parent / "assets" / "wezterm-maximize.lua"
 
@@ -73,9 +91,9 @@ def _cwd(slot: ResolvedSlot) -> str:
     return slot.target if not slot.empty else str(Path.home())
 
 
-def describe(layout: str, slots: list[ResolvedSlot]) -> list[str]:
+def describe(layout: str, slots: list[ResolvedSlot], flip: bool = False) -> list[str]:
     """Human-readable plan for --dry-run."""
-    plan = SPLIT_PLAN.get(layout, [])
+    plan = _plan(layout, flip)
     lines = []
     first = slots[0]
     lines.append(f"start  --new-window (MAXIMIZED)  cwd={_cwd(first)}  "
@@ -135,12 +153,13 @@ def _await_first_pane(ws_name: str, timeout: float = 10.0) -> str:
 # ---- launch -----------------------------------------------------------------
 
 def launch(layout: str, slots: list[ResolvedSlot], inject_color: bool = False,
-           workspace_name: str = "workspace", color_delay: float = 1.5) -> None:
+           workspace_name: str = "workspace", color_delay: float = 1.5,
+           flip: bool = False) -> None:
     if not available():
         raise RuntimeError("wezterm not found on PATH. Install it: "
                            "brew install --cask wezterm")
 
-    plan = SPLIT_PLAN.get(layout, [])
+    plan = _plan(layout, flip)
     pane_ids: list[str] = []
 
     # First pane opens a NEW, MAXIMIZED window (via gui-startup in our config).

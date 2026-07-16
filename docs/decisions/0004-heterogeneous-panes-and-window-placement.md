@@ -2,6 +2,11 @@
 
 **Status:** Proposed (future direction — not yet built) · **Date:** 2026-07-13
 
+> **Scoped by [ADR 0005](0005-combo-flip-and-partial-compaction.md):** partial
+> *all-terminal* layouts are handled in-engine there by compaction — no
+> Accessibility grant needed. This ADR now covers only genuinely **mixed**
+> (non-`claude`) workspaces, not "a workspace with empty slots."
+
 ## Context
 
 Today every pane is a Claude terminal, tiled *inside one WezTerm window*. A

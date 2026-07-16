@@ -17,7 +17,11 @@ and [`docs/decisions/`](docs/decisions/) for why it's built the way it is.
 ## Model, in three words
 
 - **Pane** — a terminal identity: `name · color · target dir · model`. Reusable.
-- **Layout** — the shape: `single` (1), `split` (2 side-by-side), `quad` (2×2).
+- **Layout** — the shape: `single` (1), `split` (2 side-by-side), `combo` (3 — one
+  full pane + two stacked), `quad` (2×2). `split` and `combo` can be **flipped**
+  horizontally (saved per workspace). Leave slots empty and a partial layout
+  **compacts** to the filled count on launch — no empty shells. See
+  [`docs/decisions/0005`](docs/decisions/0005-combo-flip-and-partial-compaction.md).
 - **Workspace** — a saved composition: a layout with a pane assigned to each slot.
 
 Panes and workspaces are *data* (your config); the composer and launcher are the

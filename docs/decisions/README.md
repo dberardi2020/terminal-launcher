@@ -9,6 +9,8 @@ Each records context, the options weighed, the decision, and its consequences.
 | [0002](0002-identity-injection.md) | Pane **identity injection** (name · title · `/color`, two-step submit) | Accepted |
 | [0003](0003-visual-composer-pywebview.md) | **Visual composer**: a fleeting native window (pywebview) | Accepted |
 | [0004](0004-heterogeneous-panes-and-window-placement.md) | **Heterogeneous panes** (Chrome/Finder/…) via OS-window placement | Proposed |
+| [0005](0005-combo-flip-and-partial-compaction.md) | **Combo layout**, horizontal **flip**, and partial-layout **compaction** | Accepted |
+| [0006](0006-workspace-reordering-affordance.md) | **Workspace reordering**: inline arrows + Jump-to-front/end in the ⋯ menu | Accepted |
 
 Numbered, append-only. A superseded decision stays and is marked
 `Superseded by NNNN` rather than edited away.

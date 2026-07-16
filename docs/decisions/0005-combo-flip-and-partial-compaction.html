@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>0005 — Combo layout, horizontal flip &amp; partial-layout compaction</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>0005 — Combo layout, horizontal flip &amp; partial-layout compaction</h1>
+<p><strong>Status:</strong> Accepted · <strong>Date:</strong> 2026-07-16</p>
+<h2>Context</h2>
+<p>Three layout wants surfaced together, and they share one engine (<code>SPLIT_PLAN</code> in <code>wezterm.py</code> + <code>LAYOUT_CAPACITY</code> in <code>config.py</code>), so they're recorded as one ADR:</p>
+<p>1. A layout between <strong>split</strong> (2) and <strong>quad</strong> (4): one full-height pane on one side, two stacked on the other. 2. A way to <strong>mirror a layout horizontally</strong> — put the "main" pane on the other side — saved with the workspace. 3. A fix for <strong>partial layouts</strong> (a workspace with one or more empty slots), which today spawn a login-shell pane per empty slot (<code>_prog</code> returns <code>[]</code> → default shell). An empty slot becoming a shell is the actual defect.</p>
+<h2>Decision 1 — the <code>combo</code> layout (capacity 3)</h2>
+<p><code>LAYOUT_CAPACITY</code> gains <code>"combo": 3</code>, ordered between <code>split</code> and <code>quad</code>. The split plan is <code>[("right", 0), ("bottom", 1)]</code>: slot 0 opens full-height on the left; slot 1 splits to its right; slot 2 splits below slot 1. Result — a full-height <strong>Main</strong> on the left, <strong>Top</strong> / <strong>Bottom</strong> stacked on the right. Slot names are <code>Main / Top / Bottom</code> (side-agnostic, so flip doesn't invalidate them).</p>
+<p>Name: <strong>Combo</strong> — it's literally a split ⊕ one quad-half. ("Triple", "1+2", "Main+Stack" were considered; Combo read clearest in the toggle.)</p>
+<h2>Decision 2 — horizontal flip (saveable; split &amp; combo only)</h2>
+<p>A workspace may carry <code>"flip": true</code>. Launch mirrors the layout horizontally by swapping the first *horizontal* split direction (<code>right</code>↔<code>left</code>); vertical splits are untouched. So a flipped split puts slot 0 on the right; a flipped combo puts <strong>Main</strong> on the right with the stack on the left.</p>
+<ul><li>Stored <strong>only when true</strong>, so single/quad configs stay clean. <code>single</code>/<code>quad</code></li></ul>
+<p>ignore it (a 2×2 grid has no meaningful horizontal mirror the user asked for).</p>
+<ul><li>The composer shows it live (a <code>.flip</code> class reorders the preview columns via</li></ul>
+<p>CSS), and the launched window matches — one boolean drives both.</p>
+<ul><li>Implementation is a *geometry* transform (<code>_plan(layout, flip)</code>), not a slot</li></ul>
+<p>reorder: slot identity/model/color are unchanged, only which side each renders on.</p>
+<h2>Decision 3 — partial layouts <strong>compact</strong> (they do not switch engines)</h2>
+<p>The request was "partial layouts should not use WezTerm; tile them instead." Half right: the shell-pane behaviour is wrong, but switching engines is the wrong fix.</p>
+<table><thead><tr><th>Option</th><th>Empty slot becomes…</th><th>Cost</th><th>Verdict</th></tr></thead><tbody><tr><td><strong>A. Compact (chosen)</strong></td><td>*nothing* — filled panes tile with the layout that fits their count (2→split, 3→combo, 4→quad)</td><td>~15 lines in <code>model.compact</code>; no new permission</td><td><strong>Accepted</strong></td></tr><tr><td><strong>B. OS-window tiler</strong> (<a href="0004-heterogeneous-panes-and-window-placement.md">ADR 0004</a>)</td><td>a preserved empty rectangle (gap)</td><td><strong>Accessibility grant</strong> — the exact cost WezTerm was chosen to avoid (<a href="0001-terminal-layer-and-core.md">ADR 0001</a>)</td><td>Rejected for the all-terminal case</td></tr><tr><td><strong>C. Keep shells</strong></td><td>a login-shell pane</td><td>none</td><td>Rejected — this is the bug</td></tr></tbody></table>
+<p><strong>Why A over B.</strong> WezTerm *cannot* leave a hole — every pane region runs a program — so "tiled with a gap" is unreachable in the terminal engine regardless. Reaching for the OS-window placer to draw a gap would drag the Accessibility permission onto the fleeting launcher for zero benefit on an all-Claude workspace. Compaction gives the natural outcome (the filled panes fill the window) with no new cost, and composes with Combo: 3 filled slots of any layout → a combo.</p>
+<p><code>model.compact(slots)</code> drops empties, re-indexes the survivors <code>0..n-1</code> (so the split plan lines up), and returns the <code>COUNT_LAYOUT[n]</code> layout. A *full* composition is unchanged (n == capacity resolves back to its own layout). Both the CLI and the GUI run it right before handing off to <code>wezterm.launch</code>, so the two surfaces behave identically.</p>
+<p><strong>Escape hatch preserved:</strong> if a user genuinely wants empty regions kept as gaps, that is the one case that still needs Option B — and Option B is exactly what ADR 0004 already scopes (mixed workspaces). This ADR narrows 0004: the OS-window tiler is now reserved for *heterogeneous* (non-<code>claude</code>) workspaces, <strong>not</strong> for partial all-terminal ones.</p>
+<h2>Relationship to ADR 0004</h2>
+<p>ADR 0004 (OS-window placement for Chrome/Finder panes) stays <strong>Proposed</strong>. This ADR removes "partial all-terminal layouts" from its motivation: those are handled here, in-engine, without Accessibility. 0004's remaining job is genuinely mixed panes.</p>
+<h2>Consequences</h2>
+<ul><li><code>combo</code> is a first-class layout across config, model, launcher, CLI, and GUI.</li><li><code>flip</code> is a per-workspace boolean; forward/back compatible (absent = false).</li><li>Empty slots never launch a shell again; partial compositions reshape to fit.</li><li>The OS-window tiler is now needed *only* for mixed workspaces — a smaller, later</li></ul>
+<p>bet, not a prerequisite for good partial-layout behaviour.</p>
+<ul><li>Not yet built: the OS-window "preserve the gap" mode (revisit only if compaction</li></ul>
+<p>proves insufficient in real use).</p>
+</main></body></html>

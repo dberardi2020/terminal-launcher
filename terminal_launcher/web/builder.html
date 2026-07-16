@@ -40,6 +40,15 @@
   .preview.single{grid-template-columns:1fr}
   .preview.split{grid-template-columns:1fr 1fr}
   .preview.quad{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .preview.combo{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .preview.combo>:nth-child(1){grid-column:1;grid-row:1/3}
+  .preview.combo>:nth-child(2){grid-column:2;grid-row:1}
+  .preview.combo>:nth-child(3){grid-column:2;grid-row:2}
+  .preview.split.flip>:nth-child(1){grid-column:2}
+  .preview.split.flip>:nth-child(2){grid-column:1}
+  .preview.combo.flip>:nth-child(1){grid-column:2}
+  .preview.combo.flip>:nth-child(2){grid-column:1}
+  .preview.combo.flip>:nth-child(3){grid-column:1}
   .cell{border-radius:6px;background:#1a1a26;border:1px solid #ffffff08}
   .cell.empty{background:repeating-linear-gradient(45deg,#15151f,#15151f 5px,#12121b 5px,#12121b 10px)}
   .panelist{font-size:12px;color:var(--muted);font-family:var(--mono);margin-bottom:12px;min-height:16px}
@@ -72,10 +81,25 @@
   .toggle button.active{background:var(--accent);color:#04122e;font-weight:600}
   .mini{display:inline-grid;gap:2px;width:20px;height:14px;vertical-align:middle}
   .mini i{background:currentColor;border-radius:2px;opacity:.8}
+  .mini-combo{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .mini-combo i:nth-child(1){grid-row:1/3}
+  .mini-combo i:nth-child(2){grid-column:2}
+  .mini-combo i:nth-child(3){grid-column:2}
+  #flipBtn.on{color:var(--accent)}
   .slots{display:grid;gap:10px;margin-top:16px;min-height:230px}
   .slots.single{grid-template-columns:1fr}
   .slots.split{grid-template-columns:1fr 1fr}
   .slots.quad{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .slots.combo{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+  .slots.combo>:nth-child(1){grid-column:1;grid-row:1/3}
+  .slots.combo>:nth-child(2){grid-column:2;grid-row:1}
+  .slots.combo>:nth-child(3){grid-column:2;grid-row:2}
+  /* flip = mirror horizontally (split & combo only) */
+  .slots.split.flip>:nth-child(1){grid-column:2}
+  .slots.split.flip>:nth-child(2){grid-column:1}
+  .slots.combo.flip>:nth-child(1){grid-column:2}
+  .slots.combo.flip>:nth-child(2){grid-column:1}
+  .slots.combo.flip>:nth-child(3){grid-column:1}
   .slot{border:1px dashed var(--border2);border-radius:12px;min-height:104px;cursor:pointer;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;
     color:var(--faint);font-size:13px;position:relative;overflow:hidden}
@@ -116,10 +140,18 @@
   .swatchrow{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
   .swatch{width:24px;height:24px;border-radius:7px;cursor:pointer;border:2px solid transparent}
   .swatch.sel{border-color:#fff}
+  .pickrow{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .pickval{font-family:var(--mono);font-size:12px;color:var(--muted);word-break:break-all;flex:1}
 
   /* bottom action bar */
   .actionbar{max-width:1120px;margin:14px auto 0;display:flex;align-items:center;gap:10px;justify-content:flex-end}
-  .actionbar .fleet{margin-right:auto;display:flex;align-items:center;gap:7px;font-size:12px;color:var(--muted);cursor:pointer}
+  .actionbar .fleet{margin-right:auto;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);cursor:pointer}
+  .switch{position:relative;display:inline-flex;width:34px;height:20px;flex:none}
+  .switch input{position:absolute;inset:0;opacity:0;width:100%;height:100%;margin:0;cursor:pointer;z-index:1}
+  .switch .track{position:absolute;inset:0;background:#2a2a3d;border:1px solid var(--border2);border-radius:999px;transition:.15s}
+  .switch .track::after{content:"";position:absolute;left:2px;top:2px;width:14px;height:14px;border-radius:50%;background:#8a8a9a;transition:.15s}
+  .switch input:checked ~ .track{background:var(--accent);border-color:var(--accent)}
+  .switch input:checked ~ .track::after{transform:translateX(14px);background:#04122e}
 
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#14141f;
     border:1px solid var(--accent);border-radius:12px;padding:12px 20px;font-size:14px;
@@ -146,8 +178,10 @@
         <div class="toggle" id="toggle">
           <button data-layout="single"><span class="mini" style="grid-template-columns:1fr"><i></i></span>Single</button>
           <button data-layout="split"><span class="mini" style="grid-template-columns:1fr 1fr"><i></i><i></i></span>Split</button>
+          <button data-layout="combo"><span class="mini mini-combo"><i></i><i></i><i></i></span>Combo</button>
           <button data-layout="quad"><span class="mini" style="grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr"><i></i><i></i><i></i><i></i></span>Quad</button>
         </div>
+        <button class="btn ghost" id="flipBtn" title="Flip layout horizontally" hidden>⇄ Flip</button>
         <span class="spacer"></span>
         <button class="btn ghost" id="panesBtn" title="Manage panes">⚙ Panes</button>
         <div class="status" id="status"><span class="d"></span><span id="statustext">Empty composer</span></div>
@@ -158,10 +192,10 @@
   </div>
 
   <div class="actionbar">
-    <label class="fleet"><input type="checkbox" id="fleeting" checked> close launcher after launch</label>
+    <label class="fleet"><span class="switch"><input type="checkbox" id="fleeting" checked><span class="track"></span></span> Close launcher after launch</label>
     <button class="btn ghost" id="clearBtn">Clear</button>
     <button class="btn ghost" id="revertBtn">Revert</button>
-    <button class="btn" id="saveBtn">Save as new…</button>
+    <button class="btn" id="saveBtn">Save as New…</button>
     <button class="btn" id="updateBtn">Update</button>
     <button class="btn primary" id="launchBtn">Launch</button>
   </div>
@@ -171,16 +205,18 @@
 
 <script>
 const $ = id => document.getElementById(id);
-const CAP = {single:1, split:2, quad:4};
+const CAP = {single:1, split:2, combo:3, quad:4};
+const FLIPPABLE = l => l==='split' || l==='combo';
 const SLOT_NAMES = {
   single: ['Full'], split: ['Left','Right'],
+  combo: ['Main','Top','Bottom'],
   quad: ['Top-left','Top-right','Bottom-left','Bottom-right'],
 };
 const clone = o => JSON.parse(JSON.stringify(o));
 const api = () => window.pywebview.api;
 
 let STATE = {panes:{}, models:[], colors:[], workspaces:[], settings:{}, wezterm:true, defaultModel:'opus'};
-let comp = {layout:'split', slots:[null,null], loaded:null, dirty:false};
+let comp = {layout:'split', slots:[null,null], loaded:null, dirty:false, flip:false};
 let sideMode = 'hint';           // 'hint' | 'slot' | 'panes' | 'paneform'
 let editing = null;              // slot index for 'slot' mode
 let editModel = null;            // null = Default (pane's own default)
@@ -190,7 +226,9 @@ const paneName  = id => (STATE.panes[id]||{}).name || id;
 const paneColor = id => (STATE.panes[id]||{}).hex || '#8a8a9a';
 const paneTarget= id => (STATE.panes[id]||{}).target || '';
 const modelLabel= id => id==null ? 'Default' : ((STATE.models.find(m=>m.id===id)||{}).label || id);
-const slotName  = (layout,i) => (SLOT_NAMES[layout]||[])[i] || ('Slot '+(i+1));
+const slotName  = (layout,i,flip) =>
+  (layout==='split' && flip) ? (['Right','Left'][i] || ('Slot '+(i+1)))
+  : ((SLOT_NAMES[layout]||[])[i] || ('Slot '+(i+1)));
 
 function paneList(slots){ return slots.map(s => s ? paneName(s.pane) : '(empty)').join(' · '); }
 
@@ -207,7 +245,7 @@ function renderGallery(){
         <span class="ctype">${p.layout}</span>
         <span class="dots"><button class="icon-btn" title="Admin actions" data-menu="${i}">⋯</button></span>
       </div>
-      <div class="preview ${p.layout}">${cells}</div>
+      <div class="preview ${p.layout}${p.flip?' flip':''}">${cells}</div>
       <div class="panelist"></div>
       <div class="crow">
         <button class="btn primary launch" data-launch="${i}">Launch</button>
@@ -226,6 +264,7 @@ function renderGallery(){
 /* ---------- composer ---------- */
 function setLayout(layout, keep){
   comp.layout = layout;
+  if(!FLIPPABLE(layout)) comp.flip = false;   // flip is meaningless for single/quad
   const cap = CAP[layout];
   const next = [];
   for(let i=0;i<cap;i++) next.push(keep && comp.slots[i]!==undefined ? comp.slots[i] : null);
@@ -235,21 +274,22 @@ function setLayout(layout, keep){
 
 function render(){
   document.querySelectorAll('#toggle button').forEach(b=>b.classList.toggle('active', b.dataset.layout===comp.layout));
-  const box = $('slots'); box.className = 'slots '+comp.layout; box.innerHTML='';
+  const fb = $('flipBtn'); fb.hidden = !FLIPPABLE(comp.layout); fb.classList.toggle('on', !!comp.flip);
+  const box = $('slots'); box.className = 'slots '+comp.layout+(comp.flip?' flip':''); box.innerHTML='';
   comp.slots.forEach((s,i)=>{
     const el = document.createElement('div');
     const editcls = (sideMode==='slot' && editing===i) ? ' editing' : '';
     if(s){
       el.className='slot filled'+editcls;
       el.innerHTML = `<div class="bar" style="background:${paneColor(s.pane)}"></div>
-        <div class="pos">${slotName(comp.layout,i)}</div>
+        <div class="pos">${slotName(comp.layout,i,comp.flip)}</div>
         <div class="pn"></div><div class="pt"></div><div class="pm"></div>`;
       el.querySelector('.pn').textContent = paneName(s.pane);
       el.querySelector('.pt').textContent = paneTarget(s.pane);
       el.querySelector('.pm').textContent = modelLabel(s.model);
     } else {
       el.className='slot'+editcls;
-      el.innerHTML=`<div class="pos">${slotName(comp.layout,i)}</div><div>+ Click to assign</div>`;
+      el.innerHTML=`<div class="pos">${slotName(comp.layout,i,comp.flip)}</div><div>+ Click to assign</div>`;
     }
     el.onclick = ()=>startEditing(i);
     box.appendChild(el);
@@ -298,14 +338,14 @@ function renderSlotEditor(side){
   const chips = [{id:null,label:'Default'}].concat(STATE.models).map(m=>
     `<button class="chip ${editModel===m.id?'sel':''}" data-model="${m.id===null?'':m.id}">${m.label}</button>`).join('');
   side.innerHTML = `
-    <div class="shead"><h3>Editing <span class="accent">${slotName(comp.layout, editing)}</span></h3></div>
+    <div class="shead"><h3>Editing <span class="accent">${slotName(comp.layout, editing, comp.flip)}</span></h3></div>
     <div class="panepick">${panes}
-      <div class="panerow add" data-newpane>＋ New pane…</div>
+      <div class="panerow add" data-newpane>＋ New Pane…</div>
     </div>
     <div class="modlbl">Model</div>
     <div class="chips">${chips}</div>
     <div class="editactions">
-      <button class="btn ghost" id="clearSlot" style="flex:1">Clear slot</button>
+      <button class="btn ghost" id="clearSlot" style="flex:1">Clear Slot</button>
       <button class="btn primary" id="doneEdit" style="flex:1">Done</button>
     </div>`;
   side.querySelectorAll('.panerow[data-pane]').forEach(r=>{
@@ -339,7 +379,7 @@ function renderPaneManager(side){
     <div class="shead"><h3>Panes</h3><span class="spacer"></span>
       <button class="btn ghost" id="panesDone">Done</button></div>
     <div class="panepick">${rows || '<p class="hint">No panes yet.</p>'}
-      <div class="panerow add" data-newpane>＋ New pane…</div>
+      <div class="panerow add" data-newpane>＋ New Pane…</div>
     </div>`;
   side.querySelectorAll('.panerow[data-pane]').forEach(r=>{
     r.querySelector('.nm').textContent = paneName(r.dataset.pane);
@@ -364,23 +404,30 @@ function openPaneForm(id, ret){ paneCtx = {id, ret}; sideMode='paneform'; render
 function renderPaneForm(side){
   const {id, ret} = paneCtx;
   const p = id ? STATE.panes[id] : {name:'', target:'~', color:(STATE.colors[0]||{}).name, model:STATE.defaultModel};
-  let sel = {color:p.color, model:p.model};
+  let sel = {color:p.color, model:p.model, target:p.target};
   const swatches = STATE.colors.map(c=>
     `<div class="swatch ${c.name===sel.color?'sel':''}" data-color="${c.name}" style="background:${c.hex}" title="${c.name}"></div>`).join('');
   const chips = STATE.models.map(m=>
     `<button class="chip ${m.id===sel.model?'sel':''}" data-model="${m.id}">${m.label}</button>`).join('');
   side.innerHTML = `
-    <div class="shead"><h3>${id?'Edit pane':'New pane'}</h3></div>
+    <div class="shead"><h3>${id?'Edit Pane':'New Pane'}</h3></div>
     <label class="fld">Name</label><input class="txt" id="pName" placeholder="e.g. Backend">
-    <label class="fld">Target directory</label><input class="txt" id="pTarget" placeholder="~/repos/backend">
+    <label class="fld">Target Dir</label>
+    <div class="pickrow"><button class="btn" id="pTargetBtn" type="button">Choose folder…</button><span class="pickval" id="pTargetVal"></span></div>
     <label class="fld">Color</label><div class="swatchrow" id="pColors">${swatches}</div>
-    <label class="fld">Default model</label><div class="chips" id="pModels">${chips}</div>
+    <label class="fld">Default Model</label><div class="chips" id="pModels">${chips}</div>
     <div class="editactions">
       ${id?'<button class="btn ghost danger" id="pDelete">Delete</button>':''}
       <button class="btn ghost" id="pCancel" style="flex:1">Cancel</button>
       <button class="btn primary" id="pSave" style="flex:1">Save</button>
     </div>`;
-  $('pName').value = p.name; $('pTarget').value = p.target;
+  $('pName').value = p.name;
+  const showTarget = ()=>{ $('pTargetVal').textContent = sel.target || '(none)'; };
+  showTarget();
+  $('pTargetBtn').onclick = async ()=>{
+    const res = await api().pick_directory(sel.target || '~');
+    if(res && res.ok){ sel.target = res.path; showTarget(); }
+  };
   $('pColors').querySelectorAll('.swatch').forEach(s=>s.onclick=()=>{
     sel.color=s.dataset.color; $('pColors').querySelectorAll('.swatch').forEach(x=>x.classList.toggle('sel',x===s));
   });
@@ -390,7 +437,7 @@ function renderPaneForm(side){
   const back = ()=>{ sideMode = ret.mode; editing = ret.mode==='slot'?ret.slot:editing; paneCtx=null; render(); };
   $('pCancel').onclick = back;
   $('pSave').onclick = async ()=>{
-    const pane = {name:$('pName').value, target:$('pTarget').value, color:sel.color, model:sel.model};
+    const pane = {name:$('pName').value, target:sel.target, color:sel.color, model:sel.model};
     const res = await api().save_pane(pane, id);
     if(!res.ok) return toast(res.error, null, true);
     await refresh();
@@ -404,13 +451,17 @@ function renderPaneForm(side){
     if(!confirm(`Delete pane “${p.name}”?`)) return;
     const res = await api().delete_pane(id);
     if(!res.ok) return toast(res.error, null, true);
-    await refresh(); back();
+    // Leave the form BEFORE refreshing: refresh() re-renders, and renderPaneForm
+    // would throw reading the now-deleted pane — which would strand us in the form.
+    sideMode = ret.mode; editing = ret.mode==='slot'?ret.slot:editing; paneCtx=null;
+    await refresh();
+    toast('Pane deleted', p.name);
   };
 }
 
 function loadWorkspace(i){
   const p = STATE.workspaces[i];
-  comp = {layout:p.layout, slots:clone(p.slots), loaded:p.name, dirty:false};
+  comp = {layout:p.layout, slots:clone(p.slots), loaded:p.name, dirty:false, flip:!!p.flip};
   editing=null; sideMode='hint'; render();
 }
 
@@ -421,14 +472,21 @@ function openMenu(i, btn){
   const m = document.createElement('div');
   m.className='menu';
   m.style.cssText='position:absolute;right:0;top:26px;background:var(--panel);border:1px solid var(--border2);border-radius:10px;padding:5px;z-index:20;min-width:130px;box-shadow:0 8px 24px #000a';
-  m.innerHTML = `<button class="btn ghost" data-a="rename" style="display:block;width:100%;text-align:left">Rename…</button>
+  const count = STATE.workspaces.length;
+  m.innerHTML = `<button class="btn ghost" data-a="front" ${i===0?'disabled':''} style="display:block;width:100%;text-align:left">Jump to Front</button>
+                 <button class="btn ghost" data-a="end" ${i===count-1?'disabled':''} style="display:block;width:100%;text-align:left">Jump to End</button>
+                 <div style="height:1px;background:var(--border);margin:5px 4px"></div>
+                 <button class="btn ghost" data-a="rename" style="display:block;width:100%;text-align:left">Rename…</button>
                  <button class="btn ghost" data-a="duplicate" style="display:block;width:100%;text-align:left">Duplicate</button>
                  <button class="btn ghost danger" data-a="delete" style="display:block;width:100%;text-align:left">Delete</button>`;
   btn.parentElement.appendChild(m);
+  const jump = async pos=>{ closeAnyMenu(); const r=await api().reorder_workspace(ws.name, pos); if(!r.ok) return toast(r.error, null, true); await refresh(); };
+  m.querySelector('[data-a="front"]').onclick = ()=>jump('front');
+  m.querySelector('[data-a="end"]').onclick   = ()=>jump('end');
   m.querySelector('[data-a="rename"]').onclick = async ()=>{
     const n = prompt('Rename workspace:', ws.name); closeAnyMenu();
     if(!n || n===ws.name) return;
-    const res = await api().save_workspace(n, ws.layout, ws.slots, ws.name);
+    const res = await api().save_workspace(n, ws.layout, ws.slots, ws.name, !!ws.flip);
     if(!res.ok) return toast(res.error, null, true);
     if(comp.loaded===ws.name) comp.loaded=n;
     await refresh();
@@ -462,26 +520,27 @@ $('gallery').addEventListener('click', async e=>{
     if(res.ok) await refresh();
     return;
   }
-  if(t.id==='newCard' || t.closest('#newCard')){ comp={layout:'split',slots:[null,null],loaded:null,dirty:false}; editing=null; sideMode='hint'; render(); return; }
+  if(t.id==='newCard' || t.closest('#newCard')){ comp={layout:'split',slots:[null,null],loaded:null,dirty:false,flip:false}; editing=null; sideMode='hint'; render(); return; }
   const card = t.closest('.card:not(.new)');
   if(card){ const i=[...$('gallery').children].indexOf(card); if(i>=0 && STATE.workspaces[i]) loadWorkspace(i); }
 });
 
 /* ---------- composer / action events ---------- */
 document.querySelectorAll('#toggle button').forEach(b=>b.onclick=()=>{ setLayout(b.dataset.layout,true); if(comp.loaded) comp.dirty=true; render(); });
+$('flipBtn').onclick = ()=>{ if(!FLIPPABLE(comp.layout)) return; comp.flip=!comp.flip; if(comp.loaded) comp.dirty=true; render(); };
 $('panesBtn').onclick = ()=>{ sideMode='panes'; editing=null; render(); };
 $('launchBtn').onclick = ()=>launch(comp);
 $('clearBtn').onclick = ()=>{ setLayout(comp.layout,false); comp.loaded=null; comp.dirty=false; editing=null; sideMode='hint'; render(); };
-$('revertBtn').onclick = ()=>{ const p=STATE.workspaces.find(w=>w.name===comp.loaded); if(p){ comp={layout:p.layout,slots:clone(p.slots),loaded:p.name,dirty:false}; editing=null; sideMode='hint'; render(); } };
+$('revertBtn').onclick = ()=>{ const p=STATE.workspaces.find(w=>w.name===comp.loaded); if(p){ comp={layout:p.layout,slots:clone(p.slots),loaded:p.name,dirty:false,flip:!!p.flip}; editing=null; sideMode='hint'; render(); } };
 $('updateBtn').onclick = async ()=>{
-  const res = await api().save_workspace(comp.loaded, comp.layout, comp.slots, comp.loaded);
+  const res = await api().save_workspace(comp.loaded, comp.layout, comp.slots, comp.loaded, comp.flip);
   if(!res.ok) return toast(res.error, null, true);
   comp.dirty=false; await refresh(); toast('Updated', comp.loaded);
 };
 $('saveBtn').onclick = async ()=>{
   const n = prompt('Save as new workspace:', comp.loaded?comp.loaded+' copy':'New workspace');
   if(!n) return;
-  const res = await api().save_workspace(n, comp.layout, comp.slots, null);
+  const res = await api().save_workspace(n, comp.layout, comp.slots, null, comp.flip);
   if(!res.ok) return toast(res.error, null, true);
   comp.loaded=n; comp.dirty=false; await refresh(); toast('Saved', n);
 };
@@ -491,10 +550,10 @@ async function launch(src){
   if(!STATE.wezterm) return toast('WezTerm not found on PATH', null, true);
   const closeAfter = $('fleeting').checked;
   const plan = src.slots.map((s,i)=>s
-    ? `  ${slotName(src.layout,i)}: ${paneName(s.pane)}  →  ${paneTarget(s.pane)}  (${modelLabel(s.model)})`
-    : `  ${slotName(src.layout,i)}: (empty)`).join('\n');
-  toast(`Launching ${src.name||'ad-hoc'} · ${src.layout}…`, plan);
-  const res = await api().launch({name:src.name||null, layout:src.layout, slots:src.slots}, closeAfter);
+    ? `  ${slotName(src.layout,i,src.flip)}: ${paneName(s.pane)}  →  ${paneTarget(s.pane)}  (${modelLabel(s.model)})`
+    : `  ${slotName(src.layout,i,src.flip)}: (empty)`).join('\n');
+  toast(`Launching ${src.name||'ad-hoc'} · ${src.layout}${src.flip?' · flipped':''}…`, plan);
+  const res = await api().launch({name:src.name||null, layout:src.layout, slots:src.slots, flip:src.flip}, closeAfter);
   if(!res || !res.ok) toast((res&&res.error)||'Launch failed', null, true);
   else if(!closeAfter) toast(`Launched ${src.name||'ad-hoc'}`, plan);
 }

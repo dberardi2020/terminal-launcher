@@ -29,7 +29,9 @@ COLORS = {
     "gray": "#8a8a9a",
 }
 
-LAYOUT_CAPACITY = {"single": 1, "split": 2, "quad": 4}
+# Ordered by capacity — combo (3) sits between split and quad. A "combo" is one
+# full-height pane on one side, two stacked on the other (a split ⊕ a quad half).
+LAYOUT_CAPACITY = {"single": 1, "split": 2, "combo": 3, "quad": 4}
 
 DEFAULT_CONFIG = {
     "version": 1,
@@ -39,8 +41,11 @@ DEFAULT_CONFIG = {
         "colorDelay": 1.5,
     },
     "models": [
+        {"id": "claude-fable-5", "label": "Fable 5"},
         {"id": "opus", "label": "Opus 4.8"},
+        {"id": "claude-opus-4-7", "label": "Opus 4.7"},
         {"id": "sonnet", "label": "Sonnet 5"},
+        {"id": "claude-sonnet-4-6", "label": "Sonnet 4.6"},
         {"id": "haiku", "label": "Haiku 4.5"},
     ],
     "panes": {},

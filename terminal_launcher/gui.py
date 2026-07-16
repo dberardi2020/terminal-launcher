@@ -21,7 +21,7 @@ from pathlib import Path
 from . import config as cfg
 from . import wezterm
 from .config import COLORS, LAYOUT_CAPACITY, color_hex
-from .model import CompositionError, resolve_workspace
+from .model import CompositionError, compact, resolve_workspace
 
 WEB = Path(__file__).resolve().parent / "web"
 
@@ -123,7 +123,8 @@ class Api:
                     # model = the explicit override, or null for "Default" (inherit
                     # the pane's own default). The editor shows a Default chip for null.
                     slots.append({"pane": s["pane"], "model": s.get("model")})
-            workspaces.append({"name": ws["name"], "layout": layout, "slots": slots})
+            workspaces.append({"name": ws["name"], "layout": layout,
+                               "slots": slots, "flip": bool(ws.get("flip"))})
 
         return {
             "panes": panes,
@@ -138,13 +139,15 @@ class Api:
     # -- workspace mutations --------------------------------------------------
 
     def save_workspace(self, name: str, layout: str, slots: list,
-                       original: str | None = None) -> dict:
+                       original: str | None = None, flip: bool = False) -> dict:
         config = self._load()
         name = (name or "").strip()
         if not name:
             return {"ok": False, "error": "Name required"}
         record = {"name": name, "layout": layout,
                   "slots": self._normalize_slots(layout, slots)}
+        if flip:  # only stored when set, so single/quad configs stay clean
+            record["flip"] = True
 
         idx = self._find_ws(config, original) if original else -1
         clash = self._find_ws(config, name)
@@ -197,6 +200,18 @@ class Api:
             cfg.save(self.path, config)
         return {"ok": True}
 
+    def reorder_workspace(self, name: str, position: str) -> dict:
+        """Jump a workspace to the 'front' or 'end' of the gallery order."""
+        config = self._load()
+        i = self._find_ws(config, name)
+        if i < 0:
+            return {"ok": False, "error": f"No workspace '{name}'"}
+        wss = config["workspaces"]
+        ws = wss.pop(i)
+        wss.insert(0, ws) if position == "front" else wss.append(ws)
+        cfg.save(self.path, config)
+        return {"ok": True}
+
     # -- pane mutations (edit the config from within) -------------------------
 
     def save_pane(self, pane: dict, original_id: str | None = None) -> dict:
@@ -229,6 +244,33 @@ class Api:
         cfg.save(self.path, config)
         return {"ok": True}
 
+    # -- pickers --------------------------------------------------------------
+
+    def pick_directory(self, start: str | None = None) -> dict:
+        """Open the OS-native folder chooser; return the picked path (~-collapsed).
+
+        Returns {"ok": True, "path": ...} on selection, {"ok": False} on cancel
+        (or if the dialog can't open). Home is re-collapsed to ~ for tidy configs.
+        """
+        if self._window is None:
+            return {"ok": False}
+        import webview  # lazy — same GUI stack the window came from
+        init = os.path.expanduser(start or "~")
+        if not os.path.isdir(init):
+            init = os.path.expanduser("~")
+        try:
+            result = self._window.create_file_dialog(
+                webview.FOLDER_DIALOG, directory=init)
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+        if not result:
+            return {"ok": False}
+        path = result[0] if isinstance(result, (list, tuple)) else result
+        home = os.path.expanduser("~")
+        if path == home or path.startswith(home + os.sep):
+            path = "~" + path[len(home):]
+        return {"ok": True, "path": path}
+
     # -- launch ---------------------------------------------------------------
 
     def _toast(self, message: str, is_error: bool = False) -> None:
@@ -254,6 +296,7 @@ class Api:
         if not wezterm.available():
             return {"ok": False, "error": "WezTerm not found on PATH."}
         layout = comp.get("layout", "single")
+        flip = bool(comp.get("flip"))
         ws = {"name": comp.get("name") or "adhoc", "layout": layout,
               "slots": self._normalize_slots(layout, comp.get("slots"))}
         try:
@@ -263,6 +306,9 @@ class Api:
         if not any(not s.empty for s in slots):
             return {"ok": False, "error": "Nothing to launch — every slot is empty."}
 
+        # Partial layouts compact: empty slots are dropped and the filled panes
+        # tile with the layout that fits their count (no shell panes). See #6.
+        layout, slots = compact(slots)
         settings = config["settings"]
         ws_name = "tl-" + _slugify(ws["name"])
 
@@ -273,6 +319,7 @@ class Api:
                     inject_color=settings.get("injectColor", False),
                     workspace_name=ws_name,
                     color_delay=settings.get("colorDelay", 1.5),
+                    flip=flip,
                 )
             except RuntimeError as e:
                 self._toast(f"Launch failed: {e}", True)
