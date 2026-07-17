@@ -226,15 +226,28 @@ async def _inject_color(session, color: str) -> None:
         _log.warning("color inject failed: %s", e)
 
 
+_SHELL_NAMES = {"-zsh", "zsh", "-bash", "bash", "login", "-fish", "fish", "sh", "-sh"}
+
+
 async def _close_stray_default_window(connection, keep_id: str) -> None:
     """When WE cold-started iTerm2 it auto-opens an empty default window; close it.
 
-    Only invoked on cold start, so every window other than the one we just built
-    is that throwaway — safe to close without touching the user's own windows."""
+    Selective on purpose: only a single-pane window running a plain login shell
+    is the throwaway. That avoids closing anything the user (or iTerm2 window
+    restoration) might have brought back that's actually doing work."""
     import iterm2
     app = await iterm2.async_get_app(connection)
     for w in app.windows:
-        if w.window_id != keep_id:
+        if w.window_id == keep_id:
+            continue
+        tabs = w.tabs
+        if len(tabs) != 1 or len(tabs[0].sessions) != 1:
+            continue
+        try:
+            name = (await tabs[0].sessions[0].async_get_variable("name")) or ""
+        except Exception:
+            name = ""
+        if name.strip().lower() in _SHELL_NAMES:
             try:
                 await w.async_close(force=True)
                 _log.info("closed stray default window %s", w.window_id[:12])
@@ -304,13 +317,15 @@ def _ensure_running() -> None:
     retry loops forever on an auth failure — see launch()."""
     if not _APP.exists():
         return
-    already = _is_running()
+    if _is_running():
+        # Already up — connect via the API directly. Do NOT `open` it again:
+        # iTerm2 with zero windows pops an empty default window on activation
+        # (the "rogue terminal"). Our launch creates the window it needs.
+        return
     try:
         subprocess.run(["open", "-g", "-a", "iTerm"], check=False, timeout=10)
     except Exception as e:
         _log.warning("could not pre-launch iTerm2: %s", e)
-        return
-    if already:
         return
     for _ in range(40):  # up to ~8s for a cold-started iTerm2 to come up
         if _is_running():
