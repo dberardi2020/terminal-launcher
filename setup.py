@@ -23,7 +23,7 @@ setup(
             "CFBundleName": "Terminal Launcher",
             "CFBundleDisplayName": "Terminal Launcher",
             "CFBundleIdentifier": "com.dberardi.terminal-launcher",
-            "CFBundleShortVersionString": "1.1.1",
+            "CFBundleShortVersionString": "1.2.0",
             "LSUIElement": False,
             "NSHighResolutionCapable": True,
             # Required so macOS shows the Automation consent prompt (instead of

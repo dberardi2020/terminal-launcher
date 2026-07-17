@@ -23,7 +23,7 @@ from . import config as cfg
 from . import diag
 from . import backend
 from .config import COLORS, LAYOUT_CAPACITY, color_hex
-from .model import CompositionError, compact, resolve_workspace
+from .model import CompositionError, resolve_workspace
 
 WEB = Path(__file__).resolve().parent / "web"
 
@@ -353,9 +353,9 @@ class Api:
         if not any(not s.empty for s in slots):
             return {"ok": False, "error": "Nothing to launch — every slot is empty."}
 
-        # Partial layouts compact: empty slots are dropped and the filled panes
-        # tile with the layout that fits their count (no shell panes). See #6.
-        layout, slots = compact(slots)
+        # Keep the original layout + slots (empties included). The backend places
+        # filled slots at their real positions — iTerm2 leaves empty slots as
+        # desktop gaps; WezTerm compacts internally.
         settings = config["settings"]
         ws_name = "tl-" + _slugify(ws["name"])
 

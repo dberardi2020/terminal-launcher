@@ -21,7 +21,7 @@ import time
 from pathlib import Path
 
 from . import diag
-from .layouts import plan as _plan
+from .layouts import FLIPPABLE as _FLIPPABLE, plan as _plan
 from .model import ResolvedSlot
 
 _log = diag.get_logger()
@@ -117,19 +117,31 @@ def _cwd(slot: ResolvedSlot) -> str:
 
 def describe(layout: str, slots: list[ResolvedSlot], flip: bool = False) -> list[str]:
     """Human-readable plan for --dry-run."""
-    p = _plan(layout, flip)
-    lines = [f"window (MAXIMIZED)  cwd={_cwd(slots[0])}  "
-             + (f"claude -n '{slots[0].name}' --model {slots[0].model}"
-                if not slots[0].empty else "(shell)")]
-    for i, slot in enumerate(slots[1:], start=1):
-        direction, src = p[i - 1]
-        lines.append(f"split  {direction:<6} from slot {src + 1}  cwd={_cwd(slot)}  "
-                     + (f"claude -n '{slot.name}' --model {slot.model}"
-                        if not slot.empty else "(shell)"))
+    def prog(s):
+        return f"claude -n '{s.name}' --model {s.model}"
+
+    filled = [s for s in slots if not s.empty]
+    partial = len(filled) < len(slots)
+    lines: list[str] = []
+    if partial:
+        # Each filled slot is its own window at its slot region; empties = gaps.
+        for slot in slots:
+            if slot.empty:
+                lines.append(f"slot {slot.index + 1}: (empty — desktop gap)")
+            else:
+                lines.append(f"window @ slot {slot.index + 1} region  "
+                             f"cwd={_cwd(slot)}  {prog(slot)}")
+    else:
+        p = _plan(layout, flip)
+        lines.append(f"window (MAXIMIZED)  cwd={_cwd(filled[0])}  {prog(filled[0])}")
+        for i, slot in enumerate(filled[1:], start=1):
+            direction, src = p[i - 1]
+            lines.append(f"split  {direction:<6} from slot {src + 1}  "
+                         f"cwd={_cwd(slot)}  {prog(slot)}")
     for slot in slots:
         if not slot.empty:
-            lines.append(f"title  slot {slot.index + 1} -> '{slot.name}'"
-                         f"   inject: /color {slot.color}")
+            lines.append(f"color  slot {slot.index + 1} -> '{slot.name}'"
+                         f"   /color {slot.color}")
     return lines
 
 
@@ -166,14 +178,22 @@ def _screen_frame():
     Reads the main display size via CoreGraphics (ctypes) — permission-free, no
     AppleScript/automation prompt. Falls back to a large frame on any failure."""
     import iterm2
+    w, h = _screen_size()
+    return iterm2.Frame(iterm2.Point(0, 0), iterm2.Size(w, h))
+
+
+def _screen_size() -> tuple[int, int]:
+    """Usable main-screen size in points (width, height-below-menubar).
+
+    CoreGraphics via ctypes — permission-free, no AppleScript prompt."""
     try:
         import ctypes
 
-        class CGPoint(ctypes.Structure):
-            _fields_ = [("x", ctypes.c_double), ("y", ctypes.c_double)]
-
         class CGSize(ctypes.Structure):
             _fields_ = [("width", ctypes.c_double), ("height", ctypes.c_double)]
+
+        class CGPoint(ctypes.Structure):
+            _fields_ = [("x", ctypes.c_double), ("y", ctypes.c_double)]
 
         class CGRect(ctypes.Structure):
             _fields_ = [("origin", CGPoint), ("size", CGSize)]
@@ -184,12 +204,28 @@ def _screen_frame():
         cg.CGDisplayBounds.restype = CGRect
         cg.CGDisplayBounds.argtypes = [ctypes.c_uint32]
         r = cg.CGDisplayBounds(cg.CGMainDisplayID())
-        w, h = int(r.size.width), int(r.size.height)
-        menubar = 25  # leave the menu bar visible
-        return iterm2.Frame(iterm2.Point(0, 0), iterm2.Size(w, h - menubar))
+        return int(r.size.width), int(r.size.height) - 25  # leave the menu bar
     except Exception as e:
-        _log.warning("screen-size probe failed (%s); using fallback frame", e)
-        return iterm2.Frame(iterm2.Point(0, 0), iterm2.Size(1440, 860))
+        _log.warning("screen-size probe failed (%s); using fallback", e)
+        return 1440, 860
+
+
+def _slot_rects(layout: str, flip: bool = False) -> list[tuple[int, int, int, int]]:
+    """Per-slot screen rectangles (x, y, w, h) in Cocoa coords (origin bottom-left,
+    y up) for a layout — used to place filled panes of a PARTIAL layout as
+    separate windows, leaving empty slots as bare desktop. Indices match the slot
+    order used by the split-plans (see layouts.py)."""
+    w, h = _screen_size()
+    hw, hh = w // 2, h // 2
+    base = {
+        "single": [(0, 0, w, h)],
+        "split": [(0, 0, hw, h), (hw, 0, hw, h)],
+        "combo": [(0, 0, hw, h), (hw, hh, hw, hh), (hw, 0, hw, hh)],
+        "quad": [(0, hh, hw, hh), (hw, hh, hw, hh), (0, 0, hw, hh), (hw, 0, hw, hh)],
+    }.get(layout, [(0, 0, w, h)])
+    if flip and layout in _FLIPPABLE:
+        base = [(w - x - rw, y, rw, rh) for (x, y, rw, rh) in base]  # mirror x
+    return base
 
 
 # Substrings that appear once Claude Code's TUI is ready for input. Matching any
@@ -229,7 +265,7 @@ async def _inject_color(session, color: str) -> None:
 _SHELL_NAMES = {"-zsh", "zsh", "-bash", "bash", "login", "-fish", "fish", "sh", "-sh"}
 
 
-async def _close_stray_default_window(connection, keep_id: str) -> None:
+async def _close_stray_default_window(connection, keep_ids: set) -> None:
     """When WE cold-started iTerm2 it auto-opens an empty default window; close it.
 
     Selective on purpose: only a single-pane window running a plain login shell
@@ -238,7 +274,7 @@ async def _close_stray_default_window(connection, keep_id: str) -> None:
     import iterm2
     app = await iterm2.async_get_app(connection)
     for w in app.windows:
-        if w.window_id == keep_id:
+        if w.window_id in keep_ids:
             continue
         tabs = w.tabs
         if len(tabs) != 1 or len(tabs[0].sessions) != 1:
@@ -255,20 +291,29 @@ async def _close_stray_default_window(connection, keep_id: str) -> None:
                 pass
 
 
-async def _build(connection, layout, slots, inject_color, color_delay, flip, cold):
+async def _color_pass(inject_color, color_delay, pairs) -> None:
+    """Inject /color into each (slot, session) pair, once Claude is ready."""
+    if not inject_color:
+        return
+    await asyncio.sleep(color_delay)  # configured minimum settle
+    for slot, s in pairs:
+        if not slot.empty:
+            await _wait_ready(s)  # then wait until Claude is actually ready
+            await _inject_color(s, slot.color)
+
+
+async def _build_split(connection, layout, slots, inject_color, color_delay,
+                       flip, cold):
+    """Full layout: ONE maximized window with the panes tiled via split-pane."""
     import iterm2
     p = _plan(layout, flip)
-    _log.info("iterm2 launch: layout=%s flip=%s panes=%d cold=%s",
-              layout, flip, len(slots), cold)
-
     window = await iterm2.Window.async_create(
         connection, profile=PROFILE_NAME,
         profile_customizations=_profile_overrides(slots[0]))
     window, s0 = await _first_session(connection, window.window_id)
     sessions = [s0]
-
     if cold:
-        await _close_stray_default_window(connection, window.window_id)
+        await _close_stray_default_window(connection, {window.window_id})
 
     for i, slot in enumerate(slots[1:], start=1):
         direction, src = p[i - 1]
@@ -276,7 +321,6 @@ async def _build(connection, layout, slots, inject_color, color_delay, flip, col
             vertical=(direction == "right"), profile=PROFILE_NAME,
             profile_customizations=_profile_overrides(slot))
         sessions.append(ns)
-        _log.debug("iterm2: split %s from slot %d", direction, src)
 
     for slot, s in zip(slots, sessions):
         if not slot.empty:
@@ -290,14 +334,55 @@ async def _build(connection, layout, slots, inject_color, color_delay, flip, col
     except Exception as e:
         _log.warning("maximize failed: %s", e)
 
-    _log.info("iterm2 launch: built %d panes", len(sessions))
+    await _color_pass(inject_color, color_delay, list(zip(slots, sessions)))
 
-    if inject_color:
-        await asyncio.sleep(color_delay)  # configured minimum settle
-        for slot, s in zip(slots, sessions):
-            if not slot.empty:
-                await _wait_ready(s)       # then wait until Claude is actually ready
-                await _inject_color(s, slot.color)
+
+async def _build_gapped(connection, layout, slots, inject_color, color_delay,
+                        flip, cold):
+    """Partial layout: each FILLED slot is its own window at its slot rectangle;
+    empty slots are left as bare desktop (the 'real gap')."""
+    import iterm2
+    rects = _slot_rects(layout, flip)
+    pairs, keep = [], set()
+    for slot in slots:
+        if slot.empty:
+            continue
+        window = await iterm2.Window.async_create(
+            connection, profile=PROFILE_NAME,
+            profile_customizations=_profile_overrides(slot))
+        window, s0 = await _first_session(connection, window.window_id)
+        keep.add(window.window_id)
+        try:
+            await s0.async_set_name(slot.name)
+        except Exception:
+            _log.warning("set-name failed for '%s'", slot.name)
+        x, y, rw, rh = rects[slot.index]
+        try:
+            await window.async_set_frame(
+                iterm2.Frame(iterm2.Point(x, y), iterm2.Size(rw, rh)))
+        except Exception as e:
+            _log.warning("slot placement failed: %s", e)
+        pairs.append((slot, s0))
+
+    if cold:
+        await _close_stray_default_window(connection, keep)
+    await _color_pass(inject_color, color_delay, pairs)
+
+
+async def _build(connection, layout, slots, inject_color, color_delay, flip, cold):
+    filled = [s for s in slots if not s.empty]
+    if not filled:
+        return
+    partial = len(filled) < len(slots)
+    _log.info("iterm2 launch: layout=%s flip=%s slots=%d filled=%d partial=%s cold=%s",
+              layout, flip, len(slots), len(filled), partial, cold)
+    if partial:
+        await _build_gapped(connection, layout, slots, inject_color, color_delay,
+                            flip, cold)
+    else:
+        await _build_split(connection, layout, filled, inject_color, color_delay,
+                           flip, cold)
+    _log.info("iterm2 launch: built %d filled", len(filled))
 
 
 # ---- launch (sync entry point) ----------------------------------------------

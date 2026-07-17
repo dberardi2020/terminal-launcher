@@ -38,7 +38,7 @@ import subprocess
 import time
 from pathlib import Path
 
-from .model import ResolvedSlot
+from .model import ResolvedSlot, compact
 
 # (direction, source-slot-index) for each slot after the first.
 SPLIT_PLAN: dict[str, list[tuple[str, int]]] = {
@@ -159,6 +159,9 @@ def launch(layout: str, slots: list[ResolvedSlot], inject_color: bool = False,
         raise RuntimeError("wezterm not found on PATH. Install it: "
                            "brew install --cask wezterm")
 
+    # WezTerm can't leave a hole — compact empties away (filled panes fill the
+    # window). The iTerm2 backend is the one that leaves real desktop gaps.
+    layout, slots = compact(slots)
     plan = _plan(layout, flip)
     pane_ids: list[str] = []
 

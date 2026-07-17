@@ -29,7 +29,6 @@ from . import diag
 from .config import LAYOUT_CAPACITY
 from .model import (
     CompositionError,
-    compact,
     find_workspace,
     resolve_workspace,
 )
@@ -162,8 +161,10 @@ def cmd_launch(config: dict, args) -> int:
     if not any(not s.empty for s in slots):
         print(red("Nothing to launch — every slot is empty."))
         return 1
-    # Partial layouts compact to the filled count (no empty shells); see ADR 0004.
-    layout, slots = compact(slots)
+    # Pass the original layout + slots (empties included). Backends handle gaps:
+    # iTerm2 places filled slots at their real positions (leaving desktop gaps);
+    # WezTerm compacts internally.
+    layout = ws.get("layout", "single")
     inject = args.inject_color or config["settings"].get("injectColor", False)
     delay = config["settings"].get("colorDelay", 1.5)
     ws_name = "tl-" + ws["name"].lower().replace(" ", "-")
