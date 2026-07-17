@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Architecture</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>Architecture</h1>
+<p>Terminal Launcher is a <strong>thin Python core</strong> with two interchangeable <strong>front-ends</strong> on top and two interchangeable <strong>terminal backends</strong> underneath, joined by a single platform-agnostic seam. The core never touches a terminal directly and never does window math; the backends never touch the config.</p>
+<h2>The layers</h2>
+<pre><code>  ┌──────────────────────── Front-ends ────────────────────────┐
+  │   cli.py  (argparse + wizard)      gui.py  (pywebview)      │
+  │        headless / scriptable       web/builder.html         │
+  └───────────────┬────────────────────────┬───────────────────┘
+                  │   both mutate the same plain config dict,
+                  │   then config.save(path, config)
+                  ▼                        ▼
+  ┌──────────────────────────── Core ──────────────────────────┐
+  │  config.py         model.py            layouts.py           │
+  │  load/save/seed    resolve_workspace   split-plans          │
+  │  defaults, colors  → ResolvedSlots     (dir/direction)      │
+  │                    compact()           flip transform       │
+  └───────────────────────────┬────────────────────────────────┘
+                              │  backend.launch(layout, slots,
+                              │    inject_color, workspace_name,
+                              │    color_delay, flip)
+                              ▼
+  ┌────────────────────── Backend seam ────────────────────────┐
+  │  backend.py   —   _impl() picks per platform:               │
+  │     Darwin &amp; iTerm2 installed → iterm2_backend              │
+  │     otherwise (incl. macOS fallback) → wezterm              │
+  └───────────────┬────────────────────────┬───────────────────┘
+                  ▼                        ▼
+        iterm2_backend.py             wezterm.py
+        iTerm2 Python API             `wezterm cli`
+        (async, native windows)       (subprocess)
+                  \                    /
+                   diag.py  ← one rotating log shared by every layer</code></pre>
+<p>Every backend satisfies the <strong>same three-function contract</strong> — <code>available()</code>, <code>describe()</code>, <code>launch()</code> — so the layers above are backend-blind. Details in <a href="Backends.md">Backends</a>.</p>
+<h2>End-to-end: what <code>launch Docs</code> does</h2>
+<ol><li><strong>Entry.</strong> <code>python -m terminal_launcher</code> → <code>cli.main()</code> parses args and dispatches <code>cmd_launch</code> (<code>cli.py:148</code>). (The <code>.app</code> bundle enters via <code>app_main.py</code> straight into the GUI; the GUI's Launch button ends up in the same core calls.)</li><li><strong>Load + find.</strong> <code>config.load(path)</code> reads <code>workspaces.json</code> and backfills defaults; <code>model.find_workspace(config, "Docs")</code> does a case-insensitive lookup.</li><li><strong>Resolve.</strong> <code>model.resolve_workspace(config, ws)</code> returns a <strong>capacity-shaped</strong> list of <code>ResolvedSlot</code>s — always <code>LAYOUT_CAPACITY[layout]</code> of them, each either filled (final <code>name/color/target/model</code>, with <strong>model precedence</strong> applied: slot → pane → global) or marked <code>empty</code>.</li><li><strong>Hand off to the seam.</strong> <code>backend.launch(layout, slots, inject_color=…, workspace_name=…, color_delay=…, flip=…)</code>. <code>backend._impl()</code> selects the platform backend fresh on every call.</li><li><strong>Backend realizes it.</strong> Each backend turns the abstract layout into real windows using <code>layouts.plan(layout, flip)</code> — a list of <code>(direction, source-slot)</code> splits:</li><li><strong>iTerm2</strong> — <em>full</em> layout → one maximized split-pane window; <em>partial</em> layout → one window per filled slot at its true screen rect, <strong>empty slots left as desktop gaps</strong> (<code>_build_gapped</code>).</li><li><strong>WezTerm</strong> — <code>model.compact()</code> drops empties and re-indexes, then splits panes in one maximized window (no gaps — every WezTerm region must run a program).</li><li><strong>Apply identity.</strong> Each filled pane gets its name/title set and — if <code>inject_color</code> — <code>/color &lt;name&gt;</code> typed in (as two separate sends; see <a href="Backends.md">Backends</a>).</li><li><strong>Log throughout.</strong> Every step, and any uncaught exception or forwarded WebView JS error, lands in the single <code>diag.py</code> rotating log.</li></ol>
+<h2>The key seams (where responsibilities are cut)</h2>
+<table><thead><tr><th>Seam</th><th>Boundary</th><th>Why it's there</th></tr></thead><tbody><tr><td><strong>Front-end ↔ core</strong></td><td>The plain <code>config</code> dict + <code>config.save</code>; <code>model.resolve_workspace</code>.</td><td>Lets the CLI and GUI stay thin and never diverge — one source of truth.</td></tr><tr><td><strong>Core ↔ backend</strong></td><td><code>backend.launch(layout, slots, …)</code> with <code>ResolvedSlot</code>s.</td><td>The core is platform-agnostic; swapping terminals is one new module (<a href="../decisions/0001-terminal-layer-and-core.md">ADR 0001</a>).</td></tr><tr><td><strong>Abstract layout ↔ geometry</strong></td><td><code>layouts.plan(layout, flip)</code> → <code>(direction, src)</code> steps.</td><td>Terminal-agnostic, unit-tested; shared by both backends (<a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a>).</td></tr><tr><td><strong>Resolve ↔ compact</strong></td><td><code>resolve_workspace</code> (capacity-shaped) then <code>compact</code> (density-shaped).</td><td>Two phases: fill/mark empties, then decide whether to drop them — a per-backend choice.</td></tr></tbody></table>
+<h2>Why the design looks like this</h2>
+<p>The whole shape follows from the ADRs:</p>
+<ul><li>A <strong>thin core behind a backend seam</strong> (<a href="../decisions/0001-terminal-layer-and-core.md">0001</a>) is what let the macOS terminal layer swap from WezTerm to iTerm2 as a <em>single new module</em> (<a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">0007</a>) without touching the core or front-ends.</li><li><strong>Identity injection</strong> targets a specific pane id/session, so it needs no Accessibility permission (<a href="../decisions/0002-identity-injection.md">0002</a>).</li><li>The <strong>visual composer is a fleeting pywebview window</strong> over the same config, not a server (<a href="../decisions/0003-visual-composer-pywebview.md">0003</a>).</li><li><strong>Partial layouts</strong> are handled <em>in-engine</em> — compaction on WezTerm, real gaps on iTerm2 (<a href="../decisions/0005-combo-flip-and-partial-compaction.md">0005</a>, <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">0007</a>) — so the OS-window placement layer (<a href="../decisions/0004-heterogeneous-panes-and-window-placement.md">0004</a>, still <em>proposed</em>) is needed only for future non-terminal panes.</li></ul>
+<p>For the full decision history and current live-vs-deferred state, read <a href="../decisions/"><code>../decisions/</code></a>.</p>
+</main></body></html>

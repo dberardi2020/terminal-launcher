@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Module Reference</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>Module Reference</h1>
+<p>A map of every module: what it owns, its key surface, and how it connects. Deep dives live in <a href="Backends.md">Backends</a> and <a href="Data-Model-and-Config.md">Data Model &amp; Config</a>; this is the index.</p>
+<p>Dependency direction: <strong>front-ends → core → backend seam → backends</strong>, with <code>diag</code> underneath everything.</p>
+<hr>
+<h2>Core</h2>
+<h3><code>config.py</code></h3>
+<p><strong>Owns</strong> the single JSON config: load, save, seed, defaults, and the color map.</p>
+<ul><li><code>default_config_path()</code> — resolution order: <code>TERMINAL_LAUNCHER_CONFIG</code> env → <code>$XDG_CONFIG_HOME/terminal-launcher/workspaces.json</code> → <code>~/.config/…</code>.</li><li><code>load(path)</code> — reads UTF-8 JSON and backfills missing <code>DEFAULT_CONFIG</code> keys / <code>settings</code> sub-keys (top-level defaults are deep-copied to avoid aliasing).</li><li><code>save(path, config)</code> — <strong>atomic</strong>: writes <code>*.tmp</code>, then <code>replace()</code> so a crash never truncates the config.</li><li><code>seed_from_example(path)</code> / <code>example_config_path()</code> — create a starter config from the bundled <code>workspaces.example.json</code>.</li><li><code>color_hex(name)</code> — named color → hex, default gray <code>#8a8a9a</code>.</li><li><strong>Constants:</strong> <code>COLORS</code> (8 named→hex), <code>LAYOUT_CAPACITY</code> <code>{single:1, split:2, combo:3, quad:4}</code>, <code>DEFAULT_CONFIG</code>. Full schema in <a href="Data-Model-and-Config.md">Data Model &amp; Config</a>.</li></ul>
+<p><em>Imports:</em> stdlib only. <em>Consumed by:</em> both front-ends, <code>model.py</code>.</p>
+<h3><code>model.py</code></h3>
+<p><strong>Owns</strong> the platform-agnostic composition engine: workspace → concrete slots.</p>
+<ul><li><code>@dataclass ResolvedSlot</code> — <code>index, empty, pane_id, name, color, color_hex, target, model</code>.</li><li><code>resolve_workspace(config, ws)</code> — returns exactly <code>LAYOUT_CAPACITY[layout]</code> slots, each filled or <code>empty</code>. Applies <strong>model precedence</strong> slot → pane → global; expands <code>target</code>. Raises <code>CompositionError</code> on unknown layout or dangling pane ref.</li><li><code>compact(slots)</code> — drops empties, re-indexes survivors <code>0..n-1</code>, returns <code>(effective_layout, filled)</code> via <code>COUNT_LAYOUT</code>. Used by the WezTerm path.</li><li><code>expand_target(raw)</code> — <code>expanduser</code> then <code>expandvars</code>, normalized.</li><li><code>find_workspace(config, name)</code> — case-insensitive, trimmed lookup.</li></ul>
+<p><em>Imports:</em> <code>LAYOUT_CAPACITY</code>, <code>color_hex</code> from <code>config</code>. <em>Consumed by:</em> both front-ends, both backends (via the resolved slots).</p>
+<h3><code>layouts.py</code></h3>
+<p><strong>Owns</strong> the terminal-agnostic split-plans and the flip transform. Unit-tested; the intended single source of truth for geometry.</p>
+<ul><li><code>plan(layout, flip=False)</code> — returns a list of <code>(direction, source-slot-index)</code> steps for each slot after the first. Flip swaps <code>right↔left</code> for split/combo only (<code>bottom</code> untouched).</li><li><strong>Constants:</strong> <code>SPLIT_PLAN</code> (<code>split:[("right",0)]</code>, <code>combo:[("right",0),("bottom",1)]</code>, <code>quad:[("right",0),("bottom",0),("bottom",1)]</code>), <code>CAPACITY</code>, <code>FLIPPABLE={split,combo}</code>.</li></ul>
+<p><em>Imports:</em> none. <em>Consumed by:</em> <code>iterm2_backend</code> (imports <code>plan</code>/<code>FLIPPABLE</code>); <code>wezterm.py</code> currently <strong>re-declares its own copy</strong> (a known drift risk — see the <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a> backlog).</p>
+<hr>
+<h2>Backend seam</h2>
+<h3><code>backend.py</code></h3>
+<p><strong>Owns</strong> platform selection — a pure router, no terminal logic.</p>
+<ul><li><code>_impl()</code> — <code>Darwin</code> <strong>and</strong> <code>iterm2_backend.available()</code> → <code>iterm2_backend</code>; else → <code>wezterm</code> (this <code>and</code> is the macOS→WezTerm fallback). Re-evaluated on every call, no caching.</li><li>Re-exports the contract: <code>available()</code>, <code>describe(layout, slots, flip)</code>, <code>launch(layout, slots, inject_color, workspace_name, color_delay, flip)</code>, plus <code>name()</code> and <code>install_hint()</code>.</li></ul>
+<h3><code>iterm2_backend.py</code> · <code>wezterm.py</code></h3>
+<p>The two terminal backends behind the contract — full treatment in <a href="Backends.md">Backends</a>. In brief:</p>
+<ul><li><strong><code>iterm2_backend.py</code></strong> — async, drives the iTerm2 Python API on its own event loop; full layout → one maximized split window, partial → one window per filled slot at its rect with <strong>real desktop gaps</strong>. Auth via Automation permission.</li><li><strong><code>wezterm.py</code></strong> — drives <code>wezterm cli</code> via subprocess; <strong>compacts</strong> empties away (WezTerm can't hold a gap); maximizes the first pane via a bundled <code>gui-startup</code> lua hook.</li></ul>
+<h3><code>assets/wezterm-maximize.lua</code></h3>
+<p>A minimal WezTerm config, applied only to windows this tool opens (via <code>WEZTERM_CONFIG_FILE</code>): a <code>gui-startup</code> hook that spawns the first slot's command and maximizes the window (there's no CLI geometry flag). Also sets large fallback <code>initial_cols/rows</code>.</p>
+<hr>
+<h2>Front-ends</h2>
+<h3><code>cli.py</code></h3>
+<p><strong>Owns</strong> the argparse surface and the interactive composer wizard.</p>
+<ul><li><code>build_parser()</code> — verbs: <code>list</code>, <code>panes</code>, <code>preview &lt;name&gt;</code>, <code>launch &lt;name&gt; [--dry-run] [--inject-color]</code>, <code>new</code>, <code>edit &lt;name&gt;</code>, <code>delete &lt;name&gt;</code>, <code>pane-new</code>, <code>gui</code>, <code>init</code>, <code>logs [--lines]</code>, plus a global <code>--config</code>.</li><li><code>main()</code> — resolves the config path, chooses a load policy per verb (<code>_load_or_die</code> vs <code>_load_or_seed</code> vs empty for <code>init</code>), dispatches, returns <code>130</code> on <code>KeyboardInterrupt</code>.</li><li><strong>Wizard:</strong> <code>_compose_workspace(config, existing=None)</code> drives layout choice → per-slot <code>_choose_pane</code> / <code>_choose_model</code> → optional flip (split/combo only). <code>_interactive_pane(config)</code> builds a pane. Every write-back is "mutate <code>config</code>, then <code>config.save</code>".</li></ul>
+<p><em>Note:</em> a slot stores <code>model</code> only when it <strong>overrides</strong> the pane default — inherited models are left off (the "Default" chip).</p>
+<h3><code>gui.py</code></h3>
+<p>&lt;a id="guipy"&gt;&lt;/a&gt;<strong>Owns</strong> the pywebview window and the JS↔Python bridge.</p>
+<ul><li><code>run(path)</code> — lazily imports <code>webview</code>, calls <code>diag.setup()</code> and <code>_inherit_login_path()</code> (merges the login-shell PATH so a Dock-launched <code>.app</code> can find <code>wezterm</code>/<code>claude</code>/<code>iterm2</code>), reads <code>web/builder.html</code> off disk, and <code>create_window(..., js_api=api, maximized=True)</code>.</li><li><code>class Api</code> — the bridge, exposed as <code>window.pywebview.api.*</code>. Every public method is wrapped in an exception tracer (<code>gui.py:71</code>) because pywebview otherwise swallows errors into silently-rejected JS promises. Methods: <code>get_state</code>, <code>save_workspace</code>, <code>delete_workspace</code>, <code>duplicate_workspace</code>, <code>move_workspace</code>, <code>reorder_workspace</code>, <code>save_pane</code>, <code>delete_pane</code>, <code>pick_directory</code>, <code>launch</code>, <code>log_client</code>, <code>get_diagnostics</code>, <code>export_logs</code>.</li><li><code>_normalize_slots()</code> — the wire-format adapter between the JS slot list and the on-disk shape (pads/trims to capacity, strips inherited models).</li><li><strong>Launch is threaded:</strong> validation is synchronous (bad input returns to JS instantly), but <code>backend.launch(...)</code> runs on a daemon thread; on a fleeting launch it ends with <code>os._exit(0)</code> (pywebview's <code>destroy()</code> is unreliable from a non-managed thread). See <a href="../decisions/0003-visual-composer-pywebview.md">ADR 0003</a>.</li></ul>
+<h3><code>web/builder.html</code></h3>
+<p>The entire GUI front-end — one self-contained file (inline HTML/CSS/JS, no external assets). A launchpad of workspace cards over a live composer; the slot editor is an inline side panel (<code>sideMode</code> ∈ <code>hint|slot|panes|paneform</code>). <code>const api = () =&gt; window.pywebview.api</code> is the single bridge accessor. JS errors (<code>window.onerror</code>, <code>unhandledrejection</code>, <code>console.error</code>) are forwarded to the Python log via <code>api.log_client</code>.</p>
+<hr>
+<h2>Entry points</h2>
+<table><thead><tr><th>File</th><th>Door</th><th>Does</th></tr></thead><tbody><tr><td><code>bin/terminal-launcher</code></td><td>shell</td><td>Executable symlinked onto <code>PATH</code>.</td></tr><tr><td><code>__main__.py</code></td><td>CLI</td><td><code>python -m terminal_launcher</code> → <code>cli.main()</code>.</td></tr><tr><td><code>app_main.py</code></td><td><code>.app</code></td><td>The py2app entry — <code>run()</code> straight into the GUI, bypassing argparse.</td></tr><tr><td><code>__init__.py</code></td><td>—</td><td>Package docstring + <code>__version__ = "1.2.0"</code>.</td></tr></tbody></table>
+<hr>
+<h2>Diagnostics</h2>
+<h3><code>diag.py</code></h3>
+<p><strong>Owns</strong> the single rotating log every layer writes to: <code>~/.config/terminal-launcher/terminal-launcher.log</code>.</p>
+<ul><li><code>setup()</code> — idempotent; attaches a <code>RotatingFileHandler</code> (512 KB × 2) + a stderr handler, and installs a <code>sys.excepthook</code> that logs uncaught exceptions as <code>UNCAUGHT</code>.</li><li><code>get_logger()</code> / <code>log_path()</code> / <code>read_tail(n=200)</code>.</li></ul>
+<p>Crucially, WebView JS errors are forwarded here over the bridge (<code>Api.log_client</code>), so a composer bug leaves a record instead of vanishing into the WebView console. Surfaced via the <code>logs</code> CLI verb and the GUI's reveal-log button.</p>
+</main></body></html>

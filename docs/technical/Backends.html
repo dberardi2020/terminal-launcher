@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Backends</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>Backends</h1>
+<p>The terminal-backend layer is where an abstract layout becomes real windows. It's the part of the system with the most platform reality in it — and the part most carefully sealed off behind a small contract so nothing above it has to care which terminal is running.</p>
+<h2>The contract</h2>
+<p>Both backend modules expose the <strong>same three functions</strong> (identical signatures):</p>
+<pre><code>available() -&gt; bool
+describe(layout, slots, flip: bool = False) -&gt; list[str]        # dry-run text
+launch(layout, slots, inject_color: bool = False,
+       workspace_name: str = "workspace", color_delay: float = 1.5,
+       flip: bool = False) -&gt; None</code></pre>
+<p><code>slots</code> is a list of <code>model.ResolvedSlot</code>. <code>backend.py</code> is a pure router that re-exports these plus <code>name()</code> and <code>install_hint()</code>, forwarding to a selected implementation.</p>
+<h2>Selection &amp; fallback (<code>backend.py</code>)</h2>
+<pre><code>def _impl():
+    if platform.system() == "Darwin" and iterm2_backend.available():
+        return iterm2_backend
+    return wezterm</code></pre>
+<ul><li><strong>macOS + iTerm2 available → <code>iterm2_backend</code>.</strong></li><li><strong>anything else → <code>wezterm</code></strong> — including a Mac <em>without</em> iTerm2 (the fallback lives entirely in that <code>and</code>).</li></ul>
+<p><code>iterm2_backend.available()</code> requires all three: <code>Darwin</code>, <code>/Applications/iTerm.app</code> exists, and <code>import iterm2</code> succeeds. <code>wezterm.available()</code> is just <code>shutil.which("wezterm") is not None</code>. <code>_impl()</code> runs fresh on every call — no caching, so installing a backend mid-session is picked up next call.</p>
+<h2>The defining difference: partial layouts</h2>
+<p>Both backends tile a <strong>full</strong> layout as one maximized, split-pane window. They diverge on <strong>partial</strong> layouts (a workspace with empty slots):</p>
+<table><thead><tr><th></th><th>Full layout</th><th>Partial layout</th></tr></thead><tbody><tr><td><strong>iTerm2 (macOS)</strong></td><td>one maximized split-pane window</td><td><strong>one window per filled slot</strong> at its true screen rect; empty slots left as bare <strong>desktop gaps</strong> (<code>_build_gapped</code>)</td></tr><tr><td><strong>WezTerm (other)</strong></td><td>one split-pane window</td><td><strong><code>compact()</code></strong> — empties dropped, survivors re-indexed and tiled; <strong>no gap</strong></td></tr></tbody></table>
+<p>Why: iTerm2 can place windows permission-free (via CoreGraphics geometry + its API), so it preserves true geometry. WezTerm <em>cannot leave a hole</em> — every pane region must run a program — and leaving a real gap would need the Accessibility grant WezTerm was chosen to avoid. This is <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a> reversing <a href="../decisions/0005-combo-flip-and-partial-compaction.md">ADR 0005</a>'s compaction on macOS only.</p>
+<h2><code>iterm2_backend.py</code> — the iTerm2 Python API</h2>
+<h3>Async on its own event loop</h3>
+<p>The whole build tree is <code>async def</code> (awaiting the iterm2 lib throughout). <code>launch()</code> creates a <strong>fresh <code>asyncio</code> event loop</strong> and runs <code>iterm2.run_until_complete(main, retry=False)</code> — its own loop because the launcher runs on a pywebview GUI worker thread with no ambient loop.</p>
+<h3>Auth: Automation, and why <code>retry=False</code></h3>
+<p>iTerm2's Python API gets its auth cookie through iTerm2's AppleScript automation surface — so this needs <strong>Automation</strong> permission (not Accessibility). The lib's built-in connect-retry <strong>loops forever</strong> on an auth denial, so it's disabled; the code does its own waiting in <code>_ensure_running()</code> and, on failure, re-raises a <code>RuntimeError</code> pointing at <em>System Settings › Privacy &amp; Security › Automation</em>.</p>
+<h3>Bringing iTerm2 up without a rogue window</h3>
+<ul><li><code>_ensure_running()</code> — if iTerm2 isn't running, <code>open -g -a iTerm</code> (background), poll <code>pgrep -x iTerm2</code> up to ~8 s, then a 1.5 s settle for the API socket.</li><li>It <strong>deliberately never re-<code>open</code>s an already-running iTerm2</strong> — activating a zero-window iTerm2 pops an empty default window.</li><li><code>cold = not _is_running()</code> is captured <em>before</em> ensuring — it gates stray-window cleanup.</li></ul>
+<h3>Spawning &amp; tiling</h3>
+<ul><li>A <strong>dynamic profile</strong> is written first to <code>~/Library/Application Support/iTerm2/DynamicProfiles/terminal-launcher.json</code> (iTerm2 hot-reloads that dir) — a dedicated One-Dark-ish / Menlo 13 profile that never touches the user's own profiles.</li><li>Per-slot command + cwd ride in a write-only profile override (<code>LocalWriteOnlyProfile</code>): custom command <code>claude -n &lt;name&gt; --model &lt;model&gt;</code> (or the default shell for an empty slot), and a custom initial directory.</li><li><strong>Full</strong> → <code>_build_split</code>: create the window, then for each later slot <code>sessions[src].async_split_pane(vertical=(direction == "right"), …)</code> per <code>layouts.plan(layout, flip)</code>. <strong>Note <code>"right"</code> → <code>vertical=True</code>.</strong> Finally <code>async_set_frame(_screen_frame())</code> to maximize.</li><li><strong>Partial</strong> → <code>_build_gapped</code>: each filled slot is its own window placed at <code>_slot_rects(layout, flip)[slot.index]</code> (Cocoa coords, origin bottom-left; flip mirrors x). Empty slots simply aren't created.</li><li>Screen size comes from <strong>CoreGraphics via <code>ctypes</code></strong> (<code>CGMainDisplayID</code> / <code>CGDisplayBounds</code>) — permission-free, no AppleScript prompt — minus a 25 px menu bar.</li></ul>
+<h3>Stray-window cleanup</h3>
+<p>Only when <code>cold</code>, <code>_close_stray_default_window</code> closes a window <strong>only</strong> if it has exactly one tab / one session whose name is a bare login shell (<code>_SHELL_NAMES = {-zsh, zsh, -bash, …}</code>) — narrowly gated so it never kills a user's real window.</p>
+<h2><code>wezterm.py</code> — driving <code>wezterm cli</code></h2>
+<ul><li><strong>Compaction first:</strong> <code>launch()</code> calls <code>model.compact(slots)</code> up front — WezTerm can't hold a gap, so empties are dropped and the layout becomes the tightest fit.</li><li><strong>First pane, maximized:</strong> <code>wezterm cli spawn --new-window</code> has no geometry flag, so the first pane is started via <code>open -na WezTerm --args start …</code> (or <code>wezterm-gui</code> on Windows) with <code>WEZTERM_CONFIG_FILE</code> pointed at the bundled <code>wezterm-maximize.lua</code>, whose <code>gui-startup</code> hook maximizes the window. Subsequent panes split into it:</li></ul>
+<pre><code>  wezterm cli split-pane --pane-id &lt;src&gt; --&lt;direction&gt; --percent 50 --cwd &lt;dir&gt; -- &lt;prog&gt;</code></pre>
+<ul><li><strong>Program:</strong> filled slot → <code>-- &lt;claude&gt; -n &lt;name&gt; --model &lt;model&gt;</code> (claude resolved to an absolute path, because a Dock-launched app hands WezTerm a minimal PATH); empty slot → <code>[]</code> (a login shell, which re-sources PATH).</li><li><strong>Title:</strong> <code>wezterm cli set-tab-title --pane-id &lt;pid&gt; &lt;name&gt;</code>.</li><li>It re-declares its own <code>SPLIT_PLAN</code>/<code>_plan</code>/<code>FLIPPABLE</code> locally instead of importing <code>layouts.py</code> — a known drift risk on the <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a> backlog.</li></ul>
+<h2>Identity injection (both backends)</h2>
+<p>Identity is three things — session <strong>name/title</strong>, and the Claude-side <strong><code>/color</code></strong> prompt tint:</p>
+<table><thead><tr><th></th><th>iTerm2</th><th>WezTerm</th></tr></thead><tbody><tr><td>Name/title</td><td><code>session.async_set_name(name)</code></td><td><code>wezterm cli set-tab-title …</code></td></tr><tr><td><code>/color</code> text</td><td><code>async_send_text("/color &lt;c&gt;")</code></td><td><code>send-text --pane-id … --no-paste "/color &lt;c&gt;"</code></td></tr><tr><td>Submit</td><td>separate <code>async_send_text("\r")</code></td><td>separate <code>send-text … "\r"</code></td></tr><tr><td>Delays</td><td>0.4 s after text, 0.2 s after CR</td><td>0.4 s after text, 0.2 s after CR</td></tr></tbody></table>
+<p><strong>The load-bearing gotcha, documented independently in both backends:</strong> sending <code>"/color x\r"</code> in one shot <em>types but does not submit</em> in Claude's TUI. You must send the text, then a <strong>lone carriage return as a separate call</strong>. Collapsing them back to one silently reintroduces the bug. See <a href="../decisions/0002-identity-injection.md">ADR 0002</a>.</p>
+<p><strong>The <code>colorDelay</code> path:</strong> when <code>inject_color</code> is false, nothing is sent. WezTerm sleeps <code>color_delay</code> once, then injects into each pane. iTerm2 is smarter — after the same initial delay it also <strong>waits for readiness per pane</strong> (<code>_wait_ready</code> polls the pane's screen text for markers like <code>"shift+tab"</code>, <code>"auto-accept"</code>, timing out at 12 s) so <code>/color</code> lands in the prompt rather than a still-booting TUI.</p>
+<h2>Gotchas worth remembering</h2>
+<ul><li><code>vertical=(direction == "right")</code> — a <code>"right"</code> split is a <em>vertical</em> divider; easy to misread.</li><li>iTerm2 leaves real desktop gaps; WezTerm compacts — same abstract layout, different physical result.</li><li><code>retry=False</code> is mandatory — the iterm2 lib's retry loops forever on auth denial.</li><li>Split-plan logic exists in <strong>three places</strong> — canonically in <code>layouts.py</code>, imported by <code>iterm2_backend</code>, but re-declared in <code>wezterm.py</code>. Keep them in sync until the backlog item lands.</li></ul>
+</main></body></html>

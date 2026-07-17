@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Decision records</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>Decision records</h1>
+<p>Architecture decisions for Terminal Launcher — the <em>why</em> behind the build. Each records context, the options weighed, the decision, and its consequences.</p>
+<table><thead><tr><th>#</th><th>Decision</th><th>Status</th></tr></thead><tbody><tr><td><a href="0001-terminal-layer-and-core.md">0001</a></td><td>Terminal layer: <strong>WezTerm</strong> + a thin <strong>Python core</strong></td><td>Accepted · amended by <a href="0007-iterm2-backend-and-real-gap-layouts.md">0007</a></td></tr><tr><td><a href="0002-identity-injection.md">0002</a></td><td>Pane <strong>identity injection</strong> (name · title · <code>/color</code>, two-step submit)</td><td>Accepted</td></tr><tr><td><a href="0003-visual-composer-pywebview.md">0003</a></td><td><strong>Visual composer</strong>: a fleeting native window (pywebview)</td><td>Accepted</td></tr><tr><td><a href="0004-heterogeneous-panes-and-window-placement.md">0004</a></td><td><strong>Heterogeneous panes</strong> (Chrome/Finder/…) via OS-window placement</td><td>Proposed</td></tr><tr><td><a href="0005-combo-flip-and-partial-compaction.md">0005</a></td><td><strong>Combo layout</strong>, horizontal <strong>flip</strong>, and partial-layout <strong>compaction</strong></td><td>Accepted · Decision 3 amended by <a href="0007-iterm2-backend-and-real-gap-layouts.md">0007</a></td></tr><tr><td><a href="0006-workspace-reordering-affordance.md">0006</a></td><td><strong>Workspace reordering</strong>: inline arrows + Jump-to-front/end in the ⋯ menu</td><td>Accepted</td></tr><tr><td><a href="0007-iterm2-backend-and-real-gap-layouts.md">0007</a></td><td><strong>macOS terminal layer → iTerm2</strong> backend + <strong>real-gap</strong> partial layouts</td><td>Accepted</td></tr></tbody></table>
+<p>Numbered, append-only. A superseded decision stays and is marked <code>Superseded by NNNN</code> rather than edited away.</p>
+</main></body></html>

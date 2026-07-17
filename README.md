@@ -118,6 +118,14 @@ Two composers over the same config:
   management. It opens **maximized**, and on a fleeting launch it closes behind you.
   See [`docs/decisions/0003-visual-composer-pywebview.md`](docs/decisions/0003-visual-composer-pywebview.md).
 
+## Documentation
+
+Full docs live in [`docs/`](docs/README.md):
+
+- **[Product docs](docs/product/README.md)** — the product, for any stakeholder.
+- **[Technical docs](docs/technical/README.md)** — the code, for developers.
+- **[concept.md](docs/concept.md)** · **[decisions/](docs/decisions/)** — the canonical concept and the ADRs.
+
 ## Layout
 
 ```

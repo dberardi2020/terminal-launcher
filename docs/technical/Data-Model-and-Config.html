@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Data Model &amp; Config</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>Data Model &amp; Config</h1>
+<p>One JSON file — <code>workspaces.json</code> — is the single source of truth for panes, workspaces, and settings. It's a <strong>plain dict</strong> end to end: there's no ORM or model object; both front-ends mutate the dict and call <code>config.save</code>.</p>
+<h2>Where the config lives</h2>
+<p>Resolution order (<code>config.default_config_path</code>, plus the CLI's <code>--config</code>):</p>
+<ol><li><code>--config &lt;path&gt;</code> (CLI global flag) or the <code>TERMINAL_LAUNCHER_CONFIG</code> env var</li><li><code>$XDG_CONFIG_HOME/terminal-launcher/workspaces.json</code></li><li><code>~/.config/terminal-launcher/workspaces.json</code></li></ol>
+<p><code>config.load()</code> backfills any missing top-level keys and <code>settings</code> sub-keys from <code>DEFAULT_CONFIG</code>, so callers always see a complete shape. <code>config.save()</code> is <strong>atomic</strong> — it writes a <code>.tmp</code> sibling and <code>replace()</code>s, so an interrupted write never truncates your config.</p>
+<h2>The schema</h2>
+<pre><code>{
+  "version": 1,
+  "settings": {
+    "defaultModel": "opus",   // global fallback model
+    "injectColor": true,      // inject /color by default on launch
+    "colorDelay": 1.5         // seconds to wait before injecting /color
+  },
+  "models": [                 // the model picker's options (id + label)
+    { "id": "claude-fable-5", "label": "Fable 5" },
+    { "id": "opus",           "label": "Opus 4.8" },
+    { "id": "sonnet",         "label": "Sonnet 5" },
+    { "id": "haiku",          "label": "Haiku 4.5" }
+    // …
+  ],
+  "panes": {                  // registry, keyed by pane id (slug)
+    "home": { "name": "Home", "color": "blue",  "target": "~",           "model": "sonnet" },
+    "code": { "name": "Code", "color": "red",   "target": "~/code/app",  "model": "opus"   }
+  },
+  "workspaces": [             // saved compositions (ordered — order is the gallery order)
+    {
+      "name": "Docs",
+      "layout": "split",      // single | split | combo | quad
+      "flip": true,           // optional; stored only when true (split/combo only)
+      "slots": [              // one entry per slot; null / omitted = empty
+        { "pane": "home" },
+        { "pane": "code", "model": "haiku" }   // model only when it OVERRIDES the pane default
+      ]
+    }
+  ]
+}</code></pre>
+<h3>Objects</h3>
+<table><thead><tr><th>Object</th><th>Key fields</th></tr></thead><tbody><tr><td><strong>settings</strong></td><td><code>defaultModel</code>, <code>injectColor</code> (bool), <code>colorDelay</code> (seconds).</td></tr><tr><td><strong>model</strong></td><td><code>id</code> (passed to <code>claude --model</code>), <code>label</code> (shown in the picker).</td></tr><tr><td><strong>pane</strong> <em>(registry value)</em></td><td><code>name</code>, <code>color</code> (a named color), <code>target</code> (dir; <code>~</code>/<code>$VARS</code> allowed), <code>model</code> (default; optional). Keyed by a slug id.</td></tr><tr><td><strong>workspace</strong></td><td><code>name</code>, <code>layout</code>, optional <code>flip</code>, <code>slots</code>.</td></tr><tr><td><strong>slot</strong></td><td><code>{ "pane": &lt;id&gt; }</code>, optionally <code>+ "model"</code>; <code>null</code> or missing → empty.</td></tr></tbody></table>
+<h3>Notable rules</h3>
+<ul><li><strong><code>slots</code> length is advisory.</strong> <code>resolve_workspace</code> always produces exactly <code>LAYOUT_CAPACITY[layout]</code> slots — extra entries are ignored, missing ones are padded as empty.</li><li><strong>A slot's <code>model</code> is stored only when it overrides</strong> the pane's own default. Inherited models are left off entirely (surfaced as the "Default" chip in the GUI). Same for <code>flip</code> — written only when <code>true</code>, so single/quad workspaces stay clean.</li><li><strong><code>color</code></strong> is a named value from <code>COLORS</code> — <code>blue, orange, red, purple, green, cyan, pink, gray</code> — each mapping to a hex (<code>color_hex</code>, default gray <code>#8a8a9a</code>).</li></ul>
+<h2>Resolution: workspace → ResolvedSlots</h2>
+<p><code>model.resolve_workspace(config, ws)</code> turns a stored workspace into concrete slots:</p>
+<pre><code>ResolvedSlot(index, empty, pane_id, name, color, color_hex, target, model)</code></pre>
+<p>For each of the <code>LAYOUT_CAPACITY[layout]</code> positions:</p>
+<ul><li>No pane assigned → <code>ResolvedSlot(index=i, empty=True)</code>.</li><li>Assigned → look up the pane (dangling ref raises <code>CompositionError</code>), then fill <code>name</code>, <code>color</code>/<code>color_hex</code>, <code>target</code> (via <code>expand_target</code>: <code>~</code> then env vars), and <code>model</code> by precedence.</li></ul>
+<h3>Model precedence</h3>
+<pre><code>slot override   →   pane default   →   global settings.defaultModel</code></pre>
+<p><code>{ "pane": "code", "model": "haiku" }</code> runs haiku; <code>{ "pane": "code" }</code> runs the pane's own <code>model</code> (<code>opus</code>); a pane with no <code>model</code> runs <code>settings.defaultModel</code>.</p>
+<h2>Compaction: the second phase</h2>
+<p><code>resolve_workspace</code> yields a <strong>capacity-shaped</strong> list (with empties marked). <code>model.compact(slots)</code> is the optional second phase that produces a <strong>density-shaped</strong> list — it drops empties, re-indexes survivors <code>0..n-1</code>, and returns <code>(effective_layout, filled)</code> where the layout is the tightest fit for the filled count (<code>COUNT_LAYOUT</code>: 1→single, 2→split, 3→combo, 4→quad).</p>
+<p>Two phases, two consumers:</p>
+<ul><li><strong>WezTerm</strong> runs <code>compact</code> (it can't render a gap).</li><li><strong>iTerm2</strong> does <em>not</em> — it keeps the capacity-shaped slots and places each filled one at its true rect, leaving empties as desktop gaps.</li></ul>
+<h2>Two capacity tables — kept in lockstep by a test</h2>
+<p>Capacity is declared twice: <code>config.LAYOUT_CAPACITY</code> and <code>layouts.CAPACITY</code> (derived from <code>SPLIT_PLAN</code> lengths). They must never drift — <code>tests/test_config.py</code> asserts <code>LAYOUT_CAPACITY == CAPACITY</code> exactly to guard it. See <a href="Build-Packaging-Testing.md">Build, Packaging &amp; Testing</a>.</p>
+</main></body></html>

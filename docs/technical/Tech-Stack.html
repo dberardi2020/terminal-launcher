@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Tech Stack</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>Tech Stack</h1>
+<p>A deliberately small stack. The core is <strong>stdlib-only</strong>; every third-party dependency buys exactly one capability and is isolated behind a seam so the rest of the code doesn't depend on it.</p>
+<h2>Language &amp; runtime</h2>
+<ul><li><strong>Python 3.10+</strong> — uses <code>from __future__ import annotations</code>; developed on 3.14.</li><li><strong>Version</strong> — <code>terminal_launcher.__version__ = "1.2.0"</code> (<code>__init__.py</code>), mirrored in the py2app plist <code>CFBundleShortVersionString</code>.</li></ul>
+<h2>Dependencies (<code>requirements.txt</code>)</h2>
+<table><thead><tr><th>Package</th><th>Version</th><th>Buys</th><th>Needed for</th></tr></thead><tbody><tr><td><code>pywebview</code></td><td><code>&gt;=6.2</code></td><td>A native window hosting local HTML/JS, bridged to Python</td><td>The visual composer (<code>gui.py</code>)</td></tr><tr><td><code>iterm2</code></td><td><code>&gt;=2.7</code></td><td>The iTerm2 Python API (async)</td><td>The macOS terminal backend</td></tr></tbody></table>
+<p>Everything else is the <strong>standard library</strong>: <code>argparse</code>, <code>json</code>, <code>pathlib</code>, <code>subprocess</code>, <code>asyncio</code>, <code>ctypes</code>, <code>logging</code>, <code>shutil</code>, <code>shlex</code>, <code>platform</code>, <code>functools</code>.</p>
+<p><strong>The CLI and the WezTerm backend are stdlib-only</strong> — <code>iterm2</code> and <code>pywebview</code> are both imported <em>lazily inside functions</em>, so a machine that only uses the CLI + WezTerm never needs them installed.</p>
+<h2>What each third-party piece does — and why it</h2>
+<h3>pywebview — the visual composer</h3>
+<p>Hosts <code>web/builder.html</code> (a single self-contained HTML/CSS/JS file) in the OS-native WebView (WKWebView on macOS, WebView2 on Windows) and exposes a Python object as <code>window.pywebview.api.*</code>. <strong>No web server, no persistent process.</strong></p>
+<p><em>Why:</em> the composer is meant to be <em>fleeting</em> — appear, compose, launch, vanish. A long-running localhost server contradicts that, and heavier native toolkits (SwiftUI/Avalonia/Tauri) would mean a UI rewrite or a new build toolchain. pywebview reuses the existing HTML UI and the Python core with no new language. See <a href="../decisions/0003-visual-composer-pywebview.md">ADR 0003</a>. The bridge is detailed in <a href="Module-Reference.md#guipy">Module Reference</a>.</p>
+<h3>iterm2 — the macOS terminal backend</h3>
+<p>The official async Python API for iTerm2. <code>iterm2_backend.py</code> holds direct <code>Session</code> references to exactly the panes it creates, giving unambiguous per-pane control and native windows.</p>
+<p><em>Why:</em> WezTerm on macOS couldn't deliver deterministic placement of named panes (<code>--class</code> is X11/Wayland-only; its multi-window model made "control <em>this</em> window" ambiguous). iTerm2's API fixed that. Auth is via <strong>Automation</strong> permission (an AppleScript Apple Event obtains the API cookie) — lighter than the Accessibility grant an arbitrary-window placer would need. See <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a>.</p>
+<h3><code>wezterm cli</code> — the non-macOS terminal backend</h3>
+<p>Not a Python dependency — an <strong>external binary</strong> driven via <code>subprocess</code>. <code>wezterm.py</code> shells out to <code>wezterm cli spawn</code> / <code>split-pane</code> / <code>set-tab-title</code> / <code>send-text</code>.</p>
+<p><em>Why:</em> <code>wezterm cli</code> returns pane-ids, so scripted tiling is exact, and <code>send-text --pane-id</code> targets a pane without focus or Accessibility. It's identical on macOS and Windows, giving cross-platform parity by construction. See <a href="../decisions/0001-terminal-layer-and-core.md">ADR 0001</a>.</p>
+<h3>Claude Code (<code>claude</code>) — the payload</h3>
+<p>Not a dependency of the tool, but what every filled pane runs: <code>claude -n &lt;name&gt; --model &lt;model&gt;</code>. Both backends resolve it to an absolute path (<code>shutil.which("claude")</code>) because a Dock-launched <code>.app</code> inherits a minimal PATH.</p>
+<h2>Build &amp; test tooling</h2>
+<ul><li><strong>py2app</strong> — builds the macOS Dock <code>.app</code> (<code>setup.py</code>). Dev/packaging only. See <a href="Build-Packaging-Testing.md">Build, Packaging &amp; Testing</a>.</li><li><strong>pytest</strong> — unit tests for the pure core (<code>layouts</code>, <code>model</code>, <code>config</code>). No terminal or GUI is exercised in tests.</li><li><strong>docs render</strong> — <code>docs/render.py</code> (stdlib-only) renders the Markdown docs to their paired HTML; there's no docs build system beyond it.</li></ul>
+<h2>The dependency-isolation rule</h2>
+<p>The stack stays swappable because every external piece sits behind a seam:</p>
+<ul><li><code>iterm2</code> and <code>wezterm</code> are reached <strong>only</strong> through <code>backend.py</code>'s three-function contract — the core and front-ends import neither.</li><li><code>pywebview</code> is imported <strong>only</strong> inside <code>gui.py</code> (and lazily), so the CLI never loads it.</li><li><code>iterm2</code> is imported lazily inside <code>iterm2_backend</code> functions — which is also why <code>setup.py</code> must force it into the py2app graph explicitly.</li></ul>
+</main></body></html>

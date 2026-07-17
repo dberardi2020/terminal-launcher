@@ -1,0 +1,89 @@
+# Build, Packaging & Testing
+
+## Running from source
+
+No build step. Symlink the entry point onto `PATH`:
+
+```sh
+ln -s "$(pwd)/bin/terminal-launcher" ~/.local/bin/terminal-launcher
+```
+
+`python -m terminal_launcher` works too (via `__main__.py`). The CLI and the WezTerm
+backend are stdlib-only; install `requirements.txt` only if you need the visual
+composer (`pywebview`) or the iTerm2 backend (`iterm2`).
+
+## macOS Dock app (py2app)
+
+`setup.py` builds a double-clickable `.app` around the visual composer:
+
+```sh
+source .venv/bin/activate
+pip install -r requirements.txt py2app     # first time
+python setup.py py2app                     # → dist/Terminal Launcher.app
+```
+
+Drag `dist/Terminal Launcher.app` to `/Applications`. Double-clicking opens the composer
+maximized (via `app_main.py` → `gui.run()`); a fleeting launch exits the app behind you.
+`build/` and `dist/` are git-ignored throwaways.
+
+### Two things the bundle gets right (and why they're fragile)
+
+1. **`terminal_launcher` is shipped unzipped.** `setup.py` lists it under `packages` so
+   py2app copies it as a real directory. The launcher reads `web/builder.html` and
+   `assets/wezterm-maximize.lua` **off disk via `__file__`** — a zipped egg would break
+   both. If you ever see the GUI fail to load its HTML in a bundle, this is why.
+2. **`iterm2` is force-listed under `packages`.** It's imported lazily inside functions,
+   so py2app's static import graph misses it; naming it explicitly pulls it in (and its
+   deps — websockets, protobuf).
+
+### The plist entitlements (`setup.py`)
+
+| Key | Value | Why |
+|---|---|---|
+| `CFBundleIdentifier` | `com.dberardi.terminal-launcher` | Bundle identity. |
+| `CFBundleShortVersionString` | `1.2.0` | Mirrors `__version__`. |
+| `LSUIElement` | `False` | A normal Dock app with a window, not a background agent. |
+| `NSHighResolutionCapable` | `True` | Retina. |
+| `NSAppleEventsUsageDescription` | *(consent string)* | **Required** so macOS shows the Automation prompt — iTerm2's API obtains its auth cookie via an Apple Event; without this key macOS silently denies it. |
+
+### PATH inheritance
+
+A Dock/Finder launch gets a stripped PATH, so `gui.run()` calls `_inherit_login_path()`
+— it runs the login shell (`$SHELL -lic 'echo $PATH'`) and merges in the user/Homebrew
+bins so `wezterm`, `claude`, and `iterm2` resolve. (`wezterm.py` and `iterm2_backend.py`
+additionally resolve `claude` to an absolute path for the same reason.)
+
+### TCC persistence caveat
+
+An **unsigned** py2app bundle may re-prompt for Automation after each rebuild (its code
+signature changes). Acceptable for a personal tool; ad-hoc signing would stabilize it
+(open item in [ADR 0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md)).
+
+### Icon
+
+`packaging/icon.png` (1024²) is the master; `packaging/icon.icns` is the bundled icon
+referenced by `setup.py`. Regenerate the master with `python packaging/make-icon.py`,
+then rebuild the `.icns` (the `sips`/`iconutil` recipe is in
+[`packaging/README.md`](../../packaging/README.md)).
+
+## Testing
+
+`pytest` covers the **pure core** — no terminal, GUI, or subprocess is exercised. Run:
+
+```sh
+pytest
+```
+
+| File | Covers |
+|---|---|
+| `tests/test_layouts.py` | `SPLIT_PLAN`/`CAPACITY`/`plan()` — the split geometry, flip mirroring (`right→left`, `bottom` untouched), flip is a no-op for single/quad, unknown layout → empty plan. |
+| `tests/test_model.py` | `resolve_workspace` (fill + mark empties, pad missing slots, model precedence, dangling-pane/unknown-layout errors), `compact` (drop + re-index, count→layout), `expand_target`, `find_workspace`. |
+| `tests/test_config.py` | `color_hex` for every named color, the atomic `save`/`load` round-trip, and — critically — **`LAYOUT_CAPACITY == CAPACITY`** so the two capacity tables can't drift. |
+
+### What's not covered
+
+The backends (`iterm2_backend`, `wezterm`), the GUI bridge (`gui.py`), and `cli.py`'s
+wizard have no automated tests — they're I/O- and permission-bound. iTerm2's API does,
+however, make **self-validation by read-back** possible (a launch can be verified via
+the API + `screencapture` with no human), which is a future direction noted in
+[ADR 0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md).

@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Terminal Launcher — Documentation</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>Terminal Launcher — Documentation</h1>
+<p>The map of this folder. Four kinds of doc, by audience and purpose:</p>
+<table><thead><tr><th>Folder / file</th><th>For whom</th><th>Purpose</th></tr></thead><tbody><tr><td><strong><a href="product/README.md">Product/</a></strong></td><td><em>any</em> stakeholder</td><td>What Terminal Launcher is, the model, and how to use it — no code assumed.</td></tr><tr><td><strong><a href="technical/README.md">Technical/</a></strong></td><td>developers</td><td>How the code is built — architecture, modules, backends, data model, packaging.</td></tr><tr><td><strong><a href="concept.md">concept.md</a></strong></td><td>anyone</td><td>The one-page canonical statement of the as-built concept. Product/ expands it; the ADRs justify it.</td></tr><tr><td><strong><a href="decisions/">decisions/</a></strong></td><td>anyone going deep</td><td>Architecture Decision Records — <em>why</em> each choice was made (start with <a href="decisions/0001-terminal-layer-and-core.md">0001</a> and <a href="decisions/0007-iterm2-backend-and-real-gap-layouts.md">0007</a>).</td></tr><tr><td><strong><a href="tickets/Tickets.md">tickets/</a></strong></td><td>maintainers</td><td>The lightweight backlog (board-first).</td></tr></tbody></table>
+<h2>Where to start</h2>
+<ul><li><strong>New to the product?</strong> → <a href="product/Overview.md">Product/Overview</a>, then <a href="product/Concepts.md">Product/Concepts</a>.</li><li><strong>Going to use it?</strong> → <a href="product/User-Guide.md">Product/User Guide</a>.</li><li><strong>Going to work on the code?</strong> → <a href="technical/Architecture.md">Technical/Architecture</a>, then <a href="technical/Module-Reference.md">Technical/Module Reference</a>.</li></ul>
+<h2>How these relate</h2>
+<p><code>concept.md</code> and <code>decisions/</code> are the <strong>primary sources</strong> — the concept statement and the decision history. <code>Product/</code> and <code>Technical/</code> are the <strong>reader-facing suites</strong> that synthesize them for their audiences and link back rather than duplicate. When they disagree, the ADRs win (they carry the current decision state).</p>
+<h2>Doc convention</h2>
+<p>Every prose doc here is a <strong>Markdown + HTML pair</strong> in lock-step: the <code>.md</code> is the source of truth, the <code>.html</code> is a styled render of the same content. After editing a <code>.md</code>, regenerate its <code>.html</code>:</p>
+<pre><code>python docs/render.py docs/&lt;path&gt;/&lt;file&gt;.md      # one file
+python docs/render.py docs/Technical/*.md         # a whole folder</code></pre>
+<p><code>render.py</code> is stdlib-only; there's no other docs build step.</p>
+</main></body></html>

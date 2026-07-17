@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Terminal Launcher — Technical docs</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>Terminal Launcher — Technical docs</h1>
+<p>Documentation for <strong>developers</strong> working on the code. Assumes you've skimmed the <a href="../product/README.md">Product docs</a> for the vocabulary (Pane · Layout · Workspace).</p>
+<h2>Start here</h2>
+<table><thead><tr><th>Doc</th><th>Read it for</th></tr></thead><tbody><tr><td><a href="Architecture.md">Architecture</a></td><td>The layered design and the end-to-end flow from <code>launch Docs</code> to tiled windows.</td></tr><tr><td><a href="Tech-Stack.md">Tech Stack</a></td><td>The dependencies — stdlib core, pywebview, iterm2 API, wezterm cli, py2app, pytest — and <em>why</em> each.</td></tr><tr><td><a href="Module-Reference.md">Module Reference</a></td><td>Every module: responsibility, key functions, cross-calls.</td></tr><tr><td><a href="Backends.md">Backends</a></td><td>The terminal-backend abstraction — the heart of the system.</td></tr><tr><td><a href="Data-Model-and-Config.md">Data Model &amp; Config</a></td><td>The <code>workspaces.json</code> schema, resolution order, and model precedence.</td></tr><tr><td><a href="Build-Packaging-Testing.md">Build, Packaging &amp; Testing</a></td><td>The py2app <code>.app</code> bundle, asset loading, entitlements, and the test suite.</td></tr></tbody></table>
+<h2>The shape, at a glance</h2>
+<p>~1,870 lines of Python across 11 modules, plus one self-contained HTML/JS GUI file. Layered: <strong>front-ends</strong> → <strong>core</strong> → <strong>backend seam</strong> → <strong>terminal backends</strong>.</p>
+<pre><code>bin/terminal-launcher          # executable entry point (symlink onto PATH)
+app_main.py                    # .app / Dock entry → straight to GUI
+terminal_launcher/
+  __main__.py  __init__.py     # CLI entry (python -m …) · version
+  cli.py                       # argparse + interactive composer wizard
+  gui.py                       # visual composer (pywebview) + JS↔Python bridge
+  web/builder.html             # the entire GUI front-end (inline HTML/CSS/JS)
+  config.py                    # config load/save/defaults, color map
+  model.py                     # workspace → concrete ResolvedSlots; compaction
+  layouts.py                   # split-plans (terminal-agnostic; unit-tested)
+  backend.py                   # selects the terminal backend per platform
+  iterm2_backend.py            # macOS backend — iTerm2 Python API
+  wezterm.py                   # non-macOS backend — `wezterm cli`
+  assets/wezterm-maximize.lua  # WezTerm gui-startup maximize hook
+  diag.py                      # rotating log shared by CLI + GUI + backends
+tests/                         # pytest: layouts, model, config
+packaging/                     # py2app macOS .app build
+docs/                          # this suite + concept.md + decisions/ (ADRs)</code></pre>
+<h2>The two invariants worth knowing first</h2>
+<ul><li><strong>The config is a dumb JSON dict.</strong> There's no ORM or model object for panes and workspaces — every mutation in both front-ends is "change the plain dict, then <code>config.save(path, config)</code>". See <a href="Data-Model-and-Config.md">Data Model &amp; Config</a>.</li><li><strong>Neither front-end knows which terminal it's driving.</strong> They call <code>backend.launch(...)</code>; the platform split (iTerm2 vs WezTerm) lives entirely behind that seam. See <a href="Backends.md">Backends</a>.</li></ul>
+<h2>Deeper references</h2>
+<ul><li><a href="../decisions/"><code>../decisions/</code></a> — the ADRs: <em>why</em> each choice was made (start with <a href="../decisions/0001-terminal-layer-and-core.md">0001</a> and <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">0007</a>).</li><li><a href="../concept.md"><code>../concept.md</code></a> — the as-built product concept.</li></ul>
+</main></body></html>

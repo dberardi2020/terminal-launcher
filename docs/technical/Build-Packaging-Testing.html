@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Build, Packaging &amp; Testing</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>Build, Packaging &amp; Testing</h1>
+<h2>Running from source</h2>
+<p>No build step. Symlink the entry point onto <code>PATH</code>:</p>
+<pre><code>ln -s "$(pwd)/bin/terminal-launcher" ~/.local/bin/terminal-launcher</code></pre>
+<p><code>python -m terminal_launcher</code> works too (via <code>__main__.py</code>). The CLI and the WezTerm backend are stdlib-only; install <code>requirements.txt</code> only if you need the visual composer (<code>pywebview</code>) or the iTerm2 backend (<code>iterm2</code>).</p>
+<h2>macOS Dock app (py2app)</h2>
+<p><code>setup.py</code> builds a double-clickable <code>.app</code> around the visual composer:</p>
+<pre><code>source .venv/bin/activate
+pip install -r requirements.txt py2app     # first time
+python setup.py py2app                     # → dist/Terminal Launcher.app</code></pre>
+<p>Drag <code>dist/Terminal Launcher.app</code> to <code>/Applications</code>. Double-clicking opens the composer maximized (via <code>app_main.py</code> → <code>gui.run()</code>); a fleeting launch exits the app behind you. <code>build/</code> and <code>dist/</code> are git-ignored throwaways.</p>
+<h3>Two things the bundle gets right (and why they're fragile)</h3>
+<ol><li><strong><code>terminal_launcher</code> is shipped unzipped.</strong> <code>setup.py</code> lists it under <code>packages</code> so py2app copies it as a real directory. The launcher reads <code>web/builder.html</code> and <code>assets/wezterm-maximize.lua</code> <strong>off disk via <code>__file__</code></strong> — a zipped egg would break both. If you ever see the GUI fail to load its HTML in a bundle, this is why.</li><li><strong><code>iterm2</code> is force-listed under <code>packages</code>.</strong> It's imported lazily inside functions, so py2app's static import graph misses it; naming it explicitly pulls it in (and its deps — websockets, protobuf).</li></ol>
+<h3>The plist entitlements (<code>setup.py</code>)</h3>
+<table><thead><tr><th>Key</th><th>Value</th><th>Why</th></tr></thead><tbody><tr><td><code>CFBundleIdentifier</code></td><td><code>com.dberardi.terminal-launcher</code></td><td>Bundle identity.</td></tr><tr><td><code>CFBundleShortVersionString</code></td><td><code>1.2.0</code></td><td>Mirrors <code>__version__</code>.</td></tr><tr><td><code>LSUIElement</code></td><td><code>False</code></td><td>A normal Dock app with a window, not a background agent.</td></tr><tr><td><code>NSHighResolutionCapable</code></td><td><code>True</code></td><td>Retina.</td></tr><tr><td><code>NSAppleEventsUsageDescription</code></td><td><em>(consent string)</em></td><td><strong>Required</strong> so macOS shows the Automation prompt — iTerm2's API obtains its auth cookie via an Apple Event; without this key macOS silently denies it.</td></tr></tbody></table>
+<h3>PATH inheritance</h3>
+<p>A Dock/Finder launch gets a stripped PATH, so <code>gui.run()</code> calls <code>_inherit_login_path()</code> — it runs the login shell (<code>$SHELL -lic 'echo $PATH'</code>) and merges in the user/Homebrew bins so <code>wezterm</code>, <code>claude</code>, and <code>iterm2</code> resolve. (<code>wezterm.py</code> and <code>iterm2_backend.py</code> additionally resolve <code>claude</code> to an absolute path for the same reason.)</p>
+<h3>TCC persistence caveat</h3>
+<p>An <strong>unsigned</strong> py2app bundle may re-prompt for Automation after each rebuild (its code signature changes). Acceptable for a personal tool; ad-hoc signing would stabilize it (open item in <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a>).</p>
+<h3>Icon</h3>
+<p><code>packaging/icon.png</code> (1024²) is the master; <code>packaging/icon.icns</code> is the bundled icon referenced by <code>setup.py</code>. Regenerate the master with <code>python packaging/make-icon.py</code>, then rebuild the <code>.icns</code> (the <code>sips</code>/<code>iconutil</code> recipe is in <a href="../../packaging/README.md"><code>packaging/README.md</code></a>).</p>
+<h2>Testing</h2>
+<p><code>pytest</code> covers the <strong>pure core</strong> — no terminal, GUI, or subprocess is exercised. Run:</p>
+<pre><code>pytest</code></pre>
+<table><thead><tr><th>File</th><th>Covers</th></tr></thead><tbody><tr><td><code>tests/test_layouts.py</code></td><td><code>SPLIT_PLAN</code>/<code>CAPACITY</code>/<code>plan()</code> — the split geometry, flip mirroring (<code>right→left</code>, <code>bottom</code> untouched), flip is a no-op for single/quad, unknown layout → empty plan.</td></tr><tr><td><code>tests/test_model.py</code></td><td><code>resolve_workspace</code> (fill + mark empties, pad missing slots, model precedence, dangling-pane/unknown-layout errors), <code>compact</code> (drop + re-index, count→layout), <code>expand_target</code>, <code>find_workspace</code>.</td></tr><tr><td><code>tests/test_config.py</code></td><td><code>color_hex</code> for every named color, the atomic <code>save</code>/<code>load</code> round-trip, and — critically — <strong><code>LAYOUT_CAPACITY == CAPACITY</code></strong> so the two capacity tables can't drift.</td></tr></tbody></table>
+<h3>What's not covered</h3>
+<p>The backends (<code>iterm2_backend</code>, <code>wezterm</code>), the GUI bridge (<code>gui.py</code>), and <code>cli.py</code>'s wizard have no automated tests — they're I/O- and permission-bound. iTerm2's API does, however, make <strong>self-validation by read-back</strong> possible (a launch can be verified via the API + <code>screencapture</code> with no human), which is a future direction noted in <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a>.</p>
+</main></body></html>
