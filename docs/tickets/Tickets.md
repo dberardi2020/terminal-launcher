@@ -17,7 +17,6 @@ _(none)_
 | TLA-0005 | Bug | P3 | backend | Cold-start window restoration reopens prior tool windows on relaunch (benign; left alone to avoid closing real work) |
 | TLA-0007 | Bug | P2 | ux | [Panes list overflows on long paths: wrapped entries (Private KB, Email HQ) push their edit/delete icons out of the shared right-aligned column, past the panel edge](TLA-0007/) |
 | TLA-0008 | Bug | P3 | ux | GUI `get_state()` reports launch-availability under a `wezterm` key even when the active backend is iTerm2, so the "WezTerm not found" badge can misname the backend (`terminalName` already carries the real name — gate/label on that instead) |
-| TLA-0009 | Feature | P2 | tooling | `db-restore`: rebuild the global identity-restore skill for macOS — re-inject `/color` + `/rename` into the current pane after `/clear`, reading pane identity from the Terminal Launcher config; make it operational and document it. (The old `~/.claude/skills/db-restore/` read claude-panes' `pane-identity.psd1` and is gone here.) |
 | TLA-0010 | Chore | P2 | packaging | Streamline pushing updates to the installed Dock app so code changes don't need a full py2app rebuild + reinstall each time — evaluate py2app **alias mode** (`python setup.py py2app -A`), a symlinked package, or launching the GUI from source. |
 | TLA-0011 | Feature | P3 | backend | Decide whether WezTerm is still needed at all: give Windows a **native** backend (Windows Terminal + WinAPI snap + `SendInput` injection, per the Claude Panes case study) mirroring the macOS iTerm2 pivot ([ADR 0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md)) — and drop WezTerm entirely if so. |
 
@@ -30,6 +29,7 @@ _(none)_
 | ID | Type | Area | Title | Closed |
 |---|---|---|---|---|
 | TLA-0006 | Chore | docs | Sync docs to the iTerm2 pivot: new [ADR 0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md), README/concept updates, version bump (commit `79a0aff`) | 2026-07-17 |
+| TLA-0009 | Feature | tooling | `db-restore` — global skill restoring pane identity (`/color` + `/rename`) from the TL `panes` config, matched by cwd, via the iTerm2 API. Script `~/.claude/scripts/db-restore.py` + command `db-restore.md` | 2026-07-17 |
 
 ---
 
