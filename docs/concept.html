@@ -25,49 +25,34 @@ hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
 <h1>Terminal Launcher — Concept</h1>
-<p>*A composer and launcher for arranging several Claude Code sessions on screen at once.*</p>
-<p>The <strong>as-built</strong> concept: it describes what Terminal Launcher *is*, not a draft of what it might become.</p>
+<p><em>A composer and launcher for arranging several Claude Code sessions on screen at once.</em></p>
+<p>The <strong>as-built</strong> concept: it describes what Terminal Launcher <em>is</em>, not a draft of what it might become.</p>
 <h2>The idea, in one paragraph</h2>
 <p>You often want more than one terminal open at the same time — each running Claude against a different part of your work — laid out side by side so you can see them together. Terminal Launcher lets you define those terminals once as reusable <strong>panes</strong>, arrange them into a <strong>layout</strong>, save the arrangement as a <strong>workspace</strong>, and launch the whole set with one command.</p>
-<p><strong>Rebuilt, not ported.</strong> The predecessor was a Windows/PowerShell GUI (WPF loading XAML) built for one hard-coded set of panes. That machinery — PowerShell, the <code>.vbs</code> launcher, Windows window management, the fixed pane set — was incidental. Terminal Launcher keeps only the durable idea and implements it fresh: a <strong>thin Python core</strong> driving <strong>WezTerm</strong> as the terminal layer (see <a href="decisions/0001-terminal-layer-and-core.md"><code>decisions/0001-terminal-layer-and-core.md</code></a>).</p>
+<p><strong>Rebuilt, not ported.</strong> The predecessor was a Windows/PowerShell GUI (WPF loading XAML) built for one hard-coded set of panes. That machinery — PowerShell, the <code>.vbs</code> launcher, Windows window management, the fixed pane set — was incidental. Terminal Launcher keeps only the durable idea and implements it fresh: a <strong>thin Python core</strong> driving a <strong>terminal backend</strong> behind one interface — <strong>iTerm2</strong> on macOS, <strong>WezTerm</strong> elsewhere (see <a href="decisions/0001-terminal-layer-and-core.md"><code>decisions/0001-terminal-layer-and-core.md</code></a> for the core and <a href="decisions/0007-iterm2-backend-and-real-gap-layouts.md"><code>decisions/0007-iterm2-backend-and-real-gap-layouts.md</code></a> for the macOS iTerm2 backend).</p>
 <h2>Core concepts</h2>
 <h3>Pane</h3>
-<p>A single terminal with a persistent <strong>identity</strong> — launched at its target location, running Claude with an assigned model. A pane is not a window position; it&#x27;s a *who/where*: a named context you return to. Identity is four fields:</p>
-<ul><li><strong>Name</strong> — what this pane is (e.g. <code>Docs</code>, <code>Backend</code>).</li><li><strong>Color</strong> — a visual tag so a pane is recognizable at a glance, both in the</li></ul>
-<p>  config and (via <code>/color</code>) in the launched session itself.</p>
-<ul><li><strong>Target</strong> — the working directory it opens against.</li><li><strong>Model</strong> — which Claude model that pane runs (overridable per slot at compose time).</li></ul>
+<p>A single terminal with a persistent <strong>identity</strong> — launched at its target location, running Claude with an assigned model. A pane is not a window position; it's a <em>who/where</em>: a named context you return to. Identity is four fields:</p>
+<ul><li><strong>Name</strong> — what this pane is (e.g. <code>Docs</code>, <code>Backend</code>).</li><li><strong>Color</strong> — a visual tag so a pane is recognizable at a glance, both in the config and (via <code>/color</code>) in the launched session itself.</li><li><strong>Target</strong> — the working directory it opens against.</li><li><strong>Model</strong> — which Claude model that pane runs (overridable per slot at compose time).</li></ul>
 <h3>Layout</h3>
-<p>The shape of the arrangement — how many panes and how they&#x27;re divided on screen:</p>
-<ul><li><strong>Single</strong> — one pane, full window.</li><li><strong>Split</strong> — two panes, side by side.</li><li><strong>Quad</strong> — four panes in a balanced 2×2 grid.</li></ul>
+<p>The shape of the arrangement — how many panes and how they're divided on screen:</p>
+<ul><li><strong>Single</strong> — one pane, full window.</li><li><strong>Split</strong> — two panes, side by side.</li><li><strong>Combo</strong> — three panes: one full-height, two stacked beside it.</li><li><strong>Quad</strong> — four panes in a balanced 2×2 grid.</li></ul>
+<p><code>split</code> and <code>combo</code> can be <strong>flipped</strong> horizontally — which side the main pane takes — saved per workspace. See <a href="decisions/0005-combo-flip-and-partial-compaction.md"><code>decisions/0005-combo-flip-and-partial-compaction.md</code></a>.</p>
 <h3>Workspace</h3>
-<p>A named, saved <strong>composition</strong>: a layout plus a specific pane assigned to each slot (a slot may be intentionally empty — it launches a plain shell). Workspaces are the everyday entry point — you pick one and launch. (The config key is <code>workspaces</code>.)</p>
+<p>A named, saved <strong>composition</strong>: a layout plus a specific pane assigned to each slot (a slot may be intentionally empty — on launch it is <em>dropped</em>, not run as a shell: compacted away under WezTerm, or left as a real desktop gap under iTerm2; see <a href="decisions/0005-combo-flip-and-partial-compaction.md"><code>decisions/0005</code></a> and <a href="decisions/0007-iterm2-backend-and-real-gap-layouts.md"><code>decisions/0007</code></a>). Workspaces are the everyday entry point — you pick one and launch. (The config key is <code>workspaces</code>.)</p>
 <h3>Composer</h3>
 <p>The interactive builder. Choose a layout, then assign a pane and model to each slot. Two forms exist:</p>
-<ul><li><strong>CLI</strong> (<code>new</code> / <code>edit</code>) — headless and scriptable.</li><li><strong>Visual composer</strong> (<code>terminal-launcher gui</code>) — a native window. Its <strong>slot editor</strong></li></ul>
-<p>  is an <strong>inline side panel</strong>, not a modal: selecting a slot opens an editor headed   *“Editing &amp;lt;position&amp;gt;”* (slots are named by position — *Left/Right*, or the quad   corners), with a <strong>click-to-fill</strong> pane list (clicking a pane assigns it immediately)   and <strong>model chips</strong> including a <strong>Default</strong> (use the pane&#x27;s own default). Editor verbs   are *Clear slot* / *Done*; composition verbs (*Launch · Save as new · Update · Revert   · Clear*) sit in the footer. Panes are created and edited inline in the same side   panel — no separate screen.</p>
+<ul><li><strong>CLI</strong> (<code>new</code> / <code>edit</code>) — headless and scriptable.</li><li><strong>Visual composer</strong> (<code>terminal-launcher gui</code>) — a native window. Its <strong>slot editor</strong> is an <strong>inline side panel</strong>, not a modal: selecting a slot opens an editor headed <em>“Editing &amp;lt;position&amp;gt;”</em> (slots are named by position — <em>Left/Right</em>, or the quad corners), with a <strong>click-to-fill</strong> pane list (clicking a pane assigns it immediately) and <strong>model chips</strong> including a <strong>Default</strong> (use the pane's own default). Editor verbs are <em>Clear slot</em> / <em>Done</em>; composition verbs (<em>Launch · Save as new · Update · Revert · Clear</em>) sit in the footer. Panes are created and edited inline in the same side panel — no separate screen.</li></ul>
 <p>See <a href="decisions/0003-visual-composer-pywebview.md"><code>decisions/0003-visual-composer-pywebview.md</code></a>.</p>
 <h2>Actions</h2>
 <table><thead><tr><th>Action</th><th>Meaning</th></tr></thead><tbody><tr><td><strong>Launch</strong></td><td>Open every pane in the composition at once, tiled in its layout.</td></tr><tr><td><strong>New</strong></td><td>Compose and save a fresh workspace.</td></tr><tr><td><strong>Edit</strong></td><td>Load a saved workspace, change it, and persist.</td></tr><tr><td><strong>Delete</strong></td><td>Remove a workspace.</td></tr><tr><td><strong>Pane-new</strong></td><td>Add a new reusable pane (terminal identity) to the registry.</td></tr></tbody></table>
 <h2>Interaction flow</h2>
-<ul><li><strong>Fast path</strong> — <code>terminal-launcher launch Docs</code> → the arrangement opens.</li><li><strong>Compose path</strong> — <code>terminal-launcher new</code> → pick a layout → assign each slot →</li></ul>
-<p>  it saves, then previews.</p>
-<ul><li><strong>Tweak path</strong> — <code>terminal-launcher edit Docs</code> → reassign a slot / change layout</li></ul>
-<p>  → it persists.</p>
+<ul><li><strong>Fast path</strong> — <code>terminal-launcher launch Docs</code> → the arrangement opens.</li><li><strong>Compose path</strong> — <code>terminal-launcher new</code> → pick a layout → assign each slot → it saves, then previews.</li><li><strong>Tweak path</strong> — <code>terminal-launcher edit Docs</code> → reassign a slot / change layout → it persists.</li></ul>
 <h2>What runs in a pane</h2>
-<p>A filled slot runs <code>claude -n &lt;name&gt; --model &lt;model&gt;</code> with the pane&#x27;s target as the working directory. An empty slot is left as a plain shell. Identity is then applied: the WezTerm tab title is set to the pane name, and (optionally) <code>/color &lt;name&gt;</code> is injected into the Claude session. See <a href="decisions/0002-identity-injection.md"><code>decisions/0002-identity-injection.md</code></a>.</p>
+<p>A filled slot runs <code>claude -n &lt;name&gt; --model &lt;model&gt;</code> with the pane's target as the working directory. An empty slot launches nothing (see <em>Workspace</em> above). Identity is then applied: the pane's title (the iTerm2 session name, or the WezTerm tab title) is set to the pane name, and (optionally) <code>/color &lt;name&gt;</code> is injected into the Claude session. See <a href="decisions/0002-identity-injection.md"><code>decisions/0002-identity-injection.md</code></a>.</p>
 <h2>Essence vs. incidental</h2>
-<ul><li>✓ <strong>Essence — preserved.</strong> Panes as reusable identities (`name · color · target</li></ul>
-<p>  · model`). The layout vocabulary (single/split/quad). Workspaces as saved   compositions. The composer + launch. One-command launch of a whole multi-pane   arrangement.</p>
-<ul><li>✗ <strong>Incidental — dropped.</strong> Windows &amp; PowerShell. The <code>.vbs</code> launcher and</li></ul>
-<p>  shortcut installers. Windows-specific window placement. The specific hard-coded   pane set.</p>
+<ul><li>✓ <strong>Essence — preserved.</strong> Panes as reusable identities (<code>name · color · target · model</code>). The layout vocabulary (single/split/quad). Workspaces as saved compositions. The composer + launch. One-command launch of a whole multi-pane arrangement.</li><li>✗ <strong>Incidental — dropped.</strong> Windows &amp; PowerShell. The <code>.vbs</code> launcher and shortcut installers. Windows-specific window placement. The specific hard-coded pane set.</li></ul>
 <p><strong>The key genericness principle:</strong> the pane set is <strong>data, not structure</strong>. The prior build shipped one set of panes; the concept is pane-agnostic — any names/targets/colors work. Panes and workspaces are user configuration; the composer and launcher are the product.</p>
 <h2>Deferred</h2>
-<ul><li><strong>Dock app packaging</strong> — the visual composer runs via <code>terminal-launcher gui</code>;</li></ul>
-<p>  bundling it into a double-clickable <code>.app</code> is pending. ADR 0003.</p>
-<ul><li><strong>Windows verification</strong> — the WezTerm layer is cross-platform by construction</li></ul>
-<p>  but has only been run on macOS.</p>
-<ul><li><strong>Heterogeneous panes</strong> — non-terminal panes (a browser, a file manager) tiled</li></ul>
-<p>  alongside Claude terminals; needs an OS-window placement layer. ADR 0004.</p>
-<ul><li><strong>Directory-owned identity</strong> — whether a pane&#x27;s identity should travel with its</li></ul>
-<p>  repo rather than live only in this config. Open.</p>
+<ul><li><strong>Windows verification</strong> — the WezTerm backend (now the <em>non-macOS</em> path) is cross-platform by construction but has only been run on macOS.</li><li><strong>Heterogeneous panes</strong> — non-terminal panes (a browser, a file manager) tiled alongside Claude terminals; needs an OS-window placement layer. ADR 0004.</li><li><strong>Directory-owned identity</strong> — whether a pane's identity should travel with its repo rather than live only in this config. Open.</li></ul>
 </main></body></html>

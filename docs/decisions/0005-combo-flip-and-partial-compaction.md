@@ -2,6 +2,13 @@
 
 **Status:** Accepted · **Date:** 2026-07-16
 
+> **Decision 3 amended by [ADR 0007](0007-iterm2-backend-and-real-gap-layouts.md)
+> (2026-07-16):** compaction still governs the **WezTerm** path, but the macOS
+> **iTerm2** backend now does the opposite — it keeps empty slots as real desktop
+> gaps, because iTerm2 gives permission-free window placement (so the Accessibility
+> cost that made gaps unattractive below no longer applies). Combo and flip
+> (Decisions 1–2) are unaffected.
+
 ## Context
 
 Three layout wants surfaced together, and they share one engine (`SPLIT_PLAN` in
@@ -83,5 +90,8 @@ in-engine, without Accessibility. 0004's remaining job is genuinely mixed panes.
 - Empty slots never launch a shell again; partial compositions reshape to fit.
 - The OS-window tiler is now needed *only* for mixed workspaces — a smaller, later
   bet, not a prerequisite for good partial-layout behaviour.
-- Not yet built: the OS-window "preserve the gap" mode (revisit only if compaction
-  proves insufficient in real use).
+- Not yet built *(under WezTerm)*: the OS-window "preserve the gap" mode.
+- **macOS update ([ADR 0007](0007-iterm2-backend-and-real-gap-layouts.md)):** under
+  the iTerm2 backend, partial layouts **keep** the empty slots as real desktop gaps
+  rather than compacting — the "preserve the gap" mode this ADR deferred, now cheap
+  because iTerm2 needs no Accessibility. Compaction remains the WezTerm behaviour.

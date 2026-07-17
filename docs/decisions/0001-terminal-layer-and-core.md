@@ -2,6 +2,13 @@
 
 **Status:** Accepted · **Date:** 2026-07-10
 
+> **Amended by [ADR 0007](0007-iterm2-backend-and-real-gap-layouts.md) (2026-07-16):**
+> on **macOS** the terminal layer is now **iTerm2**, not WezTerm — WezTerm could not
+> give reliable multi-window control on macOS (`--class` is X11/Wayland-only). WezTerm
+> remains the backend everywhere else. The thin-core / swappable-backend design
+> recorded here is unchanged — it is exactly what let the macOS layer be a single new
+> module.
+
 ## Context
 
 Rebuilding an earlier Windows/WPF launcher on macOS forced the single load-bearing
@@ -10,7 +17,7 @@ arrangement of terminals and launch them" actually work?** The predecessor's
 launch-mechanism analysis split the rebuild into two independent decisions — the
 **terminal layer** (what spawns and arranges terminals) and the **UI toolkit**
 (what the composer is written in). This ADR records the terminal layer; the UI is
-[ADR 0003](0003-ui-cli-first-visual-composer-deferred.md).
+[ADR 0003](0003-visual-composer-pywebview.md).
 
 The environment at decision time: macOS with `python3` (3.14, Homebrew) and
 Terminal.app only — no tmux, iTerm2, or WezTerm preinstalled. A "someday Windows
@@ -78,3 +85,6 @@ The layout → split plan the launcher emits:
   WezTerm's in-terminal tiling cannot hold GUI apps (Chrome, Finder). Supporting
   *heterogeneous* workspaces reintroduces an OS-window placement layer for the
   mixed case — the all-terminal path keeps WezTerm.
+- **Amended by [ADR 0007](0007-iterm2-backend-and-real-gap-layouts.md):** the macOS
+  terminal layer moved to **iTerm2** — WezTerm's macOS multi-window control was
+  unreliable. This ADR still governs the core and the WezTerm (non-macOS) path.

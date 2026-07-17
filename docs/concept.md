@@ -17,8 +17,10 @@ together. Terminal Launcher lets you define those terminals once as reusable
 XAML) built for one hard-coded set of panes. That machinery — PowerShell, the `.vbs`
 launcher, Windows window management, the fixed pane set — was incidental. Terminal
 Launcher keeps only the durable idea and implements it fresh: a **thin Python core**
-driving **WezTerm** as the terminal layer (see
-[`decisions/0001-terminal-layer-and-core.md`](decisions/0001-terminal-layer-and-core.md)).
+driving a **terminal backend** behind one interface — **iTerm2** on macOS, **WezTerm**
+elsewhere (see [`decisions/0001-terminal-layer-and-core.md`](decisions/0001-terminal-layer-and-core.md)
+for the core and [`decisions/0007-iterm2-backend-and-real-gap-layouts.md`](decisions/0007-iterm2-backend-and-real-gap-layouts.md)
+for the macOS iTerm2 backend).
 
 ## Core concepts
 
@@ -40,14 +42,22 @@ The shape of the arrangement — how many panes and how they're divided on scree
 
 - **Single** — one pane, full window.
 - **Split** — two panes, side by side.
+- **Combo** — three panes: one full-height, two stacked beside it.
 - **Quad** — four panes in a balanced 2×2 grid.
+
+`split` and `combo` can be **flipped** horizontally — which side the main pane takes —
+saved per workspace. See
+[`decisions/0005-combo-flip-and-partial-compaction.md`](decisions/0005-combo-flip-and-partial-compaction.md).
 
 ### Workspace
 
 A named, saved **composition**: a layout plus a specific pane assigned to each
-slot (a slot may be intentionally empty — it launches a plain shell). Workspaces
-are the everyday entry point — you pick one and launch. (The config key is
-`workspaces`.)
+slot (a slot may be intentionally empty — on launch it is *dropped*, not run as a
+shell: compacted away under WezTerm, or left as a real desktop gap under iTerm2;
+see [`decisions/0005`](decisions/0005-combo-flip-and-partial-compaction.md) and
+[`decisions/0007`](decisions/0007-iterm2-backend-and-real-gap-layouts.md)).
+Workspaces are the everyday entry point — you pick one and launch. (The config key
+is `workspaces`.)
 
 ### Composer
 
@@ -87,9 +97,10 @@ See [`decisions/0003-visual-composer-pywebview.md`](decisions/0003-visual-compos
 ## What runs in a pane
 
 A filled slot runs `claude -n <name> --model <model>` with the pane's target as
-the working directory. An empty slot is left as a plain shell. Identity is then
-applied: the WezTerm tab title is set to the pane name, and (optionally) `/color
-<name>` is injected into the Claude session. See
+the working directory. An empty slot launches nothing (see *Workspace* above).
+Identity is then applied: the pane's title (the iTerm2 session name, or the WezTerm
+tab title) is set to the pane name, and (optionally) `/color <name>` is injected
+into the Claude session. See
 [`decisions/0002-identity-injection.md`](decisions/0002-identity-injection.md).
 
 ## Essence vs. incidental
@@ -109,10 +120,8 @@ composer and launcher are the product.
 
 ## Deferred
 
-- **Dock app packaging** — the visual composer runs via `terminal-launcher gui`;
-  bundling it into a double-clickable `.app` is pending. ADR 0003.
-- **Windows verification** — the WezTerm layer is cross-platform by construction
-  but has only been run on macOS.
+- **Windows verification** — the WezTerm backend (now the *non-macOS* path) is
+  cross-platform by construction but has only been run on macOS.
 - **Heterogeneous panes** — non-terminal panes (a browser, a file manager) tiled
   alongside Claude terminals; needs an OS-window placement layer. ADR 0004.
 - **Directory-owned identity** — whether a pane's identity should travel with its

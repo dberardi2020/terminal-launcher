@@ -6,8 +6,8 @@ You often want several Claude Code sessions open at once — each pointed at a
 different part of your work, laid out side by side so you can see them together.
 Terminal Launcher lets you define those terminals once as reusable **panes**,
 arrange them into a **layout**, save the arrangement as a **workspace**, and
-launch the whole set — tiled, named, and color-tagged — in a single WezTerm
-window.
+launch the whole set — tiled, named, and color-tagged — in one command (native
+iTerm2 windows on macOS, WezTerm elsewhere).
 
 It is a macOS-native (and cross-platform) **rebuild from the concept, not a port**,
 of an earlier Windows/PowerShell launcher: the durable idea is preserved; the
@@ -19,9 +19,12 @@ and [`docs/decisions/`](docs/decisions/) for why it's built the way it is.
 - **Pane** — a terminal identity: `name · color · target dir · model`. Reusable.
 - **Layout** — the shape: `single` (1), `split` (2 side-by-side), `combo` (3 — one
   full pane + two stacked), `quad` (2×2). `split` and `combo` can be **flipped**
-  horizontally (saved per workspace). Leave slots empty and a partial layout
-  **compacts** to the filled count on launch — no empty shells. See
-  [`docs/decisions/0005`](docs/decisions/0005-combo-flip-and-partial-compaction.md).
+  horizontally (saved per workspace). Leave slots empty and a partial layout drops
+  the empties on launch — **compacted** to the filled count under WezTerm, or placed
+  at their true positions with the empty slots left as **desktop gaps** under iTerm2
+  (macOS). Either way, no empty shells. See
+  [`docs/decisions/0005`](docs/decisions/0005-combo-flip-and-partial-compaction.md)
+  and [`docs/decisions/0007`](docs/decisions/0007-iterm2-backend-and-real-gap-layouts.md).
 - **Workspace** — a saved composition: a layout with a pane assigned to each slot.
 
 Panes and workspaces are *data* (your config); the composer and launcher are the
@@ -30,8 +33,13 @@ product. Ship any pane set you like.
 ## Requirements
 
 - **Python 3.10+** (uses `from __future__ import annotations`; developed on 3.14).
-- **[WezTerm](https://wezterm.org)** on your `PATH` — the terminal layer.
-  `brew install --cask wezterm` (macOS) · `winget install wez.wezterm` (Windows).
+- **A terminal backend** — the layer that spawns and tiles the panes:
+  - **macOS → [iTerm2](https://iterm2.com)** (`brew install --cask iterm2`). Its
+    Python API drives native windows; the first launch prompts once for Automation
+    permission to control iTerm2. See
+    [`docs/decisions/0007`](docs/decisions/0007-iterm2-backend-and-real-gap-layouts.md).
+  - **elsewhere → [WezTerm](https://wezterm.org)** (`winget install wez.wezterm`) —
+    also the macOS fallback if iTerm2 isn't installed.
 - **Claude Code** (`claude`) on your `PATH` — what each filled pane runs.
 
 ## Install
@@ -49,6 +57,9 @@ terminal-launcher init        # seed ~/.config/terminal-launcher/workspaces.json
 terminal-launcher new         # interactively compose + save a workspace
 terminal-launcher launch Docs # tile it up
 ```
+
+On macOS you can also build a double-clickable **Dock app** for the visual composer
+(py2app) — see [`packaging/README.md`](packaging/README.md).
 
 ## Commands
 
@@ -82,18 +93,19 @@ precedence when launching a slot: **slot override → pane default → global de
 
 ## Identity in-session
 
-A launched pane carries its identity three ways: the WezTerm **session name**
-(`claude -n <name>`), the **tab title** (`set-tab-title`), and — optionally — the
-Claude prompt-bar **color** (`/color <name>`, injected with `--inject-color` or
-`settings.injectColor`). Injection targets a specific pane by id, so it needs no
-Accessibility permissions. See
+A launched pane carries its identity three ways: the Claude **session name**
+(`claude -n <name>`), the **pane title** (the iTerm2 session name, or the WezTerm
+tab title), and — optionally — the Claude prompt-bar **color** (`/color <name>`,
+injected with `--inject-color` or `settings.injectColor`). Injection targets a
+specific pane/session directly, so it needs no Accessibility permissions. See
 [`docs/decisions/0002-identity-injection.md`](docs/decisions/0002-identity-injection.md).
 
 ## Platform status
 
-- **macOS** — working and verified end-to-end (spawn, tile, name, title, color).
-- **Windows** — **unverified**. The launcher drives `wezterm cli`, which is
-  identical on both platforms, so the commands are the same; only the initial GUI
+- **macOS** — working and verified end-to-end (spawn, tile, name, title, color) on
+  the **iTerm2** backend; WezTerm is the fallback if iTerm2 isn't installed.
+- **Windows** — **unverified**. The **WezTerm** backend drives `wezterm cli`, which
+  is identical on both platforms, so the commands are the same; only the initial GUI
   start differs (`wezterm-gui start`). Verify before relying on it.
 
 ## The UI
@@ -114,7 +126,13 @@ terminal_launcher/
   cli.py                     # argparse + interactive composer
   config.py                  # config load/save/defaults, color map
   model.py                   # resolve a workspace → concrete slots (platform-agnostic)
-  wezterm.py                 # the terminal layer: drives `wezterm cli`
+  layouts.py                 # split-plans (terminal-agnostic; shared by backends)
+  backend.py                 # picks the terminal backend per platform
+  iterm2_backend.py          # macOS terminal layer: drives the iTerm2 Python API
+  wezterm.py                 # non-macOS terminal layer: drives `wezterm cli`
+  gui.py                     # visual composer (pywebview)
+tests/                       # pytest unit tests (layouts, model, config)
 workspaces.example.json      # seed config
+packaging/                   # py2app macOS .app build
 docs/                        # concept + decision records
 ```
