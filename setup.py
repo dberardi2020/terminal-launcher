@@ -23,9 +23,15 @@ setup(
             "CFBundleName": "Terminal Launcher",
             "CFBundleDisplayName": "Terminal Launcher",
             "CFBundleIdentifier": "com.dberardi.terminal-launcher",
-            "CFBundleShortVersionString": "1.1.0",
+            "CFBundleShortVersionString": "1.1.1",
             "LSUIElement": False,
             "NSHighResolutionCapable": True,
+            # Required so macOS shows the Automation consent prompt (instead of
+            # silently denying Apple Events). iTerm2's Python API obtains its auth
+            # cookie via AppleScript, which is an Apple Event to iTerm2.
+            "NSAppleEventsUsageDescription":
+                "Terminal Launcher controls iTerm2 to open your tiled Claude "
+                "Code layouts.",
         },
     }},
     setup_requires=["py2app"],

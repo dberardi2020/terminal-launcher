@@ -17,6 +17,7 @@ import platform
 import shlex
 import shutil
 import subprocess
+import time
 from pathlib import Path
 
 from . import diag
@@ -297,12 +298,25 @@ def _is_running() -> bool:
 
 
 def _ensure_running() -> None:
+    """Launch iTerm2 if needed and wait (bounded) until it is up.
+
+    We wait here rather than relying on the API's connect-retry, because that
+    retry loops forever on an auth failure — see launch()."""
     if not _APP.exists():
         return
+    already = _is_running()
     try:
         subprocess.run(["open", "-g", "-a", "iTerm"], check=False, timeout=10)
     except Exception as e:
         _log.warning("could not pre-launch iTerm2: %s", e)
+        return
+    if already:
+        return
+    for _ in range(40):  # up to ~8s for a cold-started iTerm2 to come up
+        if _is_running():
+            time.sleep(1.5)  # small settle for the API server to bind its socket
+            return
+        time.sleep(0.2)
 
 
 def launch(layout: str, slots: list[ResolvedSlot], inject_color: bool = False,
@@ -320,12 +334,22 @@ def launch(layout: str, slots: list[ResolvedSlot], inject_color: bool = False,
     async def main(connection):
         await _build(connection, layout, slots, inject_color, color_delay, flip, cold)
 
-    # Own event loop so this works on a GUI worker thread (no ambient loop there);
-    # retry=True rides out the connect race when we just cold-started iTerm2.
+    # Own event loop so this works on a GUI worker thread (no ambient loop there).
+    # retry=False: the API's retry loops FOREVER on an auth failure, so we never
+    # use it — _ensure_running() already waited for iTerm2 to be up.
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     try:
-        iterm2.run_until_complete(main, retry=True)
+        iterm2.run_until_complete(main, retry=False)
+    except Exception as e:
+        # Most likely cause: iTerm2 API auth (cookie) request was denied — the
+        # app needs Automation permission to control iTerm2.
+        _log.exception("iTerm2 launch failed")
+        raise RuntimeError(
+            "Could not control iTerm2. Grant permission at System Settings › "
+            "Privacy & Security › Automation › Terminal Launcher › iTerm, then "
+            "try again."
+        ) from e
     finally:
         try:
             loop.close()
