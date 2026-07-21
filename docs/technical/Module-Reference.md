@@ -82,7 +82,7 @@ placed at its rect, with real desktop gaps for empties (no compaction). In brief
   window per slot, `async_set_frame` to the Cocoa rect. Auth via Automation permission.
 - **`windows_terminal_backend.py`** — pure `ctypes`; spawns `wt -w new` per slot, finds the
   window by class-name diff, and `SetWindowPos`es it to the Win32 rect (DPI + DWM
-  compensation). `/color` via focus + `SendInput` typing (no `send-text` equivalent). No
+  compensation). `/color` via focus + clipboard paste (no `send-text` equivalent). No
   permission prompt.
 
 ---

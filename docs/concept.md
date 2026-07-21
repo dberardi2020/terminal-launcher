@@ -120,7 +120,7 @@ composer and launcher are the product.
 ## Deferred
 
 - **Windows `/color` smoke test** — the native Windows Terminal backend is built and its
-  placement verified; the `/color` keystroke-injection path awaits one real-session run.
+  placement verified; the `/color` clipboard-paste path awaits one real-session run.
 - **Heterogeneous panes** — non-terminal panes (a browser, a file manager) tiled
   alongside Claude terminals; needs an OS-window placement layer. ADR 0004.
 - **Directory-owned identity** — whether a pane's identity should travel with its

@@ -102,7 +102,7 @@ A launched pane carries its identity three ways: the Claude **session name**
 tab title on Windows), and — optionally — the Claude prompt-bar **color** (`/color <name>`,
 injected with `--inject-color` or `settings.injectColor`). On macOS injection targets the
 session directly (no Accessibility permission); on Windows it briefly focuses the window to
-type the command. See
+paste the command. See
 [`docs/decisions/0002-identity-injection.md`](docs/decisions/0002-identity-injection.md).
 
 ## Platform status
@@ -110,7 +110,7 @@ type the command. See
 - **macOS** — working and verified end-to-end (spawn, tile, name, title, color) on the
   **iTerm2** backend.
 - **Windows** — native **Windows Terminal** backend; geometry, window discovery, and
-  placement are live-verified, and the `/color` keystroke path awaits one real-session
+  placement are live-verified, and the `/color` paste path awaits one real-session
   smoke test (primary monitor only for now). See
   [`docs/product/Platforms-and-Status.md`](docs/product/Platforms-and-Status.md).
 

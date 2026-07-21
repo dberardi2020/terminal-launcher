@@ -40,7 +40,7 @@ resulting layout. **An empty slot never launches a blank shell** — it's simply
   positioning them needs nothing special.
 - **Identity injection** (`/color`, session name, title) targets a specific window/session
   directly. On macOS it needs no extra permission; on Windows it briefly focuses the target
-  window to type the command.
+  window to paste the command.
 
 ## Platform status
 
@@ -48,14 +48,14 @@ resulting layout. **An empty slot never launches a blank shell** — it's simply
   the **iTerm2** backend. The actively used, tested path.
 - **Windows** — **native Windows Terminal backend, mostly verified.** Geometry, window
   discovery, placement, and DWM-border compensation are live-tested (the visible frame
-  lands pixel-exact); the `claude` spawn + `/color` keystroke injection is written to the
+  lands pixel-exact); the `claude` spawn + `/color` clipboard-paste injection is written to the
   proven pattern and awaits a real-session smoke test. Placement is primary-monitor only
   for now.
 - **Other platforms** — no native backend; the launcher reports no terminal.
 
 ## Deferred / not yet built
 
-- **Windows `/color` smoke test** — the keystroke-injection path needs one real launch to
+- **Windows `/color` smoke test** — the paste-injection path needs one real launch to
   confirm the command lands cleanly in Claude's TUI. Multi-monitor placement is also not
   yet done (primary monitor only).
 - **Heterogeneous panes** — non-terminal panes (a browser, a file manager) tiled

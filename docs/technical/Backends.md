@@ -121,14 +121,15 @@ prompt tint:
 | | iTerm2 | Windows Terminal |
 |---|---|---|
 | Name/title | `session.async_set_name(name)` | `wt --title <name>` (+ `--tabColor <hex>`) |
-| `/color` delivery | `async_send_text` — **no focus needed** | **focus the window** (`AttachThreadInput`) then **type** via `SendInput` |
+| `/color` delivery | `async_send_text` — **no focus needed** | **focus the window** (`AttachThreadInput`) then **paste** via the clipboard (Ctrl+V) |
 | Submit | separate `async_send_text("\r")` | separate Enter keystroke |
 
-**The load-bearing gotcha (both backends):** a `/color <name>` command must be typed/sent and
-then submitted, and Claude's slash-command autocomplete can eat characters. iTerm2 sends the
-text then a lone CR. Windows has no per-pane send API, so it focuses the window and types the
-command one character at a time with a small delay, dismissing any open autocomplete with
-Escape first — so the space after `/color` isn't swallowed. See
+**The load-bearing gotcha (both backends):** a `/color <name>` command must be delivered and
+then submitted *separately*, and Claude's slash-command autocomplete can eat characters. iTerm2
+sends the text then a lone CR. Windows has no per-pane send API, so it **pastes** the whole
+command via the clipboard (Ctrl+V) — one atomic input event autocomplete can't split — then a
+separate Enter. Paste is preferred over per-character typing precisely because it's 1–2 synthetic
+events, not one per letter; the clipboard is saved/restored around it. See
 [ADR 0002](../decisions/0002-identity-injection.md).
 
 **Readiness.** Both wait before injecting: after the configured `color_delay`, iTerm2

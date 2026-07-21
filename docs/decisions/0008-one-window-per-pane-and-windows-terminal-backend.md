@@ -43,7 +43,7 @@ Both backends place their *own* windows at computed rectangles — iTerm2 via `a
 ### Windows specifics
 
 - **No permission prompt** — unlike macOS's Automation consent for the iTerm2 API, positioning a window you spawned needs none.
-- **No per-pane text API.** `wt` has no equivalent of iTerm2's `send-text`, so `/color` is injected by focusing the target window (`AttachThreadInput` to steal focus reliably) and typing via `SendInput` Unicode — Escape first, then per-character with a small delay, so Claude's slash-command autocomplete can't intercept and corrupt the command.
+- **No per-pane text API.** `wt` has no equivalent of iTerm2's `send-text`, so `/color` is injected by focusing the target window (`AttachThreadInput` to steal focus reliably) and **pasting** the command via the clipboard (Ctrl+V, then a separate Enter). Paste delivers the whole command in one input event, so Claude's slash-command autocomplete can't intercept a keystroke and corrupt it — chosen over per-character typing precisely because it's 1–2 synthetic events instead of one per letter. The clipboard is saved/restored around the paste, with a named mutex serializing concurrent launches.
 - **DWM + DPI compensation.** Win11 windows carry an invisible resize border; the placer reads `DWMWA_EXTENDED_FRAME_BOUNDS` and re-places so the *visible* frame lands exactly on the slot rect. The process is made per-monitor-DPI-aware so coordinates are physical pixels. **Primary monitor only** for now.
 - **64-bit HWND safety.** ctypes arg/restypes are set so window handles aren't truncated to 32 bits.
 
@@ -52,4 +52,4 @@ Both backends place their *own* windows at computed rectangles — iTerm2 via `a
 - **Import safety.** `backend.py` imports both native backends on every platform; each defers its heavy OS dependency (the `iterm2` lib; `ctypes.windll` / `WINFUNCTYPE`) to platform-only code paths, never at import time.
 - **`layouts.py` split-plans** (`plan()` / `SPLIT_PLAN`) are now used only to derive `CAPACITY` and by the unit tests — the native backends need slot *rectangles*, not split directions. The duplicated split-plan in `wezterm.py` is gone with the file.
 - **Packaging.** macOS keeps py2app; Windows gets a PyInstaller spec (plus a zero-bundle `pythonw -m terminal_launcher gui` shim). See [Build, Packaging & Testing](../technical/Build-Packaging-Testing.md).
-- **What's verified.** On Windows: geometry, window discovery, placement, and DWM compensation are live-tested (the visible frame lands pixel-exact). The `claude` spawn + `/color` keystroke path is written to the proven pattern but awaits a real-session smoke test.
+- **What's verified.** On Windows: geometry, window discovery, placement, DWM compensation, and the clipboard round-trip are live-tested (the visible frame lands pixel-exact). The `claude` spawn + `/color` paste-into-the-TUI path is written to the proven pattern but awaits a real-session smoke test.

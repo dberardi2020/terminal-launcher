@@ -61,7 +61,7 @@ positions each window with `SetWindowPos`.
 
 *Why:* it's the native Windows terminal (ships with Windows 11) and gives real,
 separately-placeable OS windows — the same one-window-per-pane model iTerm2 gives on macOS.
-It has no per-pane text API, so `/color` is injected by focusing the window and typing. See
+It has no per-pane text API, so `/color` is injected by focusing the window and pasting via the clipboard. See
 [ADR 0008](../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md).
 
 ### Claude Code (`claude`) — the payload

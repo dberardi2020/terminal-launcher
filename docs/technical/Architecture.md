@@ -66,7 +66,7 @@ for empty slots.** Details in [Backends](Backends.md).
    - **Windows Terminal** — spawns a `wt` window per slot, finds it, `SetWindowPos` to the
      Win32 rect (with DPI + DWM-border compensation).
 6. **Apply identity.** Each window's title/name is set and — if `inject_color` — `/color
-   <name>` is delivered (iTerm2: `send-text`; Windows Terminal: focus + keystrokes; see
+   <name>` is delivered (iTerm2: `send-text`; Windows Terminal: focus + clipboard paste; see
    [Backends](Backends.md)).
 7. **Log throughout.** Every step, and any uncaught exception or forwarded WebView JS
    error, lands in the single `diag.py` rotating log.
@@ -95,7 +95,7 @@ The shape follows from the ADRs:
   rectangles — deterministic and permission-light.
 - **Identity injection** targets a specific window/session, so on macOS it needs no
   Accessibility permission ([0002](../decisions/0002-identity-injection.md)); on Windows it
-  focuses the window and types (no `send-text` equivalent exists for `wt`).
+  focuses the window and pastes via the clipboard (no `send-text` equivalent exists for `wt`).
 - The **visual composer is a fleeting pywebview window** over the same config, not a
   server ([0003](../decisions/0003-visual-composer-pywebview.md)).
 
