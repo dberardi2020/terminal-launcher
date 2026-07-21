@@ -17,6 +17,7 @@ _(none)_
 | TLA-0007 | Bug | P2 | ux | [Panes list overflows on long paths: wrapped entries (Private KB, Email HQ) push their edit/delete icons out of the shared right-aligned column, past the panel edge](TLA-0007/) |
 | TLA-0010 | Chore | P2 | packaging | Streamline pushing updates to the installed Dock app so code changes don't need a full py2app rebuild + reinstall each time — evaluate py2app **alias mode** (`python setup.py py2app -A`), a symlinked package, or launching the GUI from source. |
 | TLA-0012 | Feature | P2 | packaging | Design the **install/setup** flow and the **maintenance/update** flow for going live as an ongoing project — first-run setup (deps, iTerm2, Automation grant, config seed) + a repeatable release/update path (version bump, rebuild, swap). The umbrella over the narrower dev-loop fix in TLA-0010. |
+| TLA-0013 | Feature | P2 | ux | Add a visual loading animation during launch so the composer doesn't look frozen while the backend spawns windows and injects `/color` — the launch runs on a background thread with color-injection sleeps, leaving the window idle for a few seconds. |
 
 ## Blocked
 
