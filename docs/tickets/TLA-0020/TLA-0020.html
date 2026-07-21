@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>TLA-0020 — A family of management commands</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>TLA-0020 — A family of management commands</h1>
+<p>Installing, updating, removing and repairing Terminal Launcher is currently a set of per-platform scripts a user has to know about. There's no single, discoverable way to ask the tool to manage itself.</p>
+<h2>Current state — what a user has to know</h2>
+<table><thead><tr><th>Task</th><th>Today</th></tr></thead><tbody><tr><td>Install the CLI</td><td><code>pipx install git+…</code>, or clone and <code>python -m terminal_launcher</code></td></tr><tr><td>Install the Dock app (macOS)</td><td><code>./packaging/install-macos.sh</code></td></tr><tr><td>Install the Start Menu entry (Windows)</td><td><code>packaging\windows\install-shortcut.ps1</code></td></tr><tr><td>Install <code>/restore</code></td><td><code>integrations/claude-code/install.sh</code> <strong>or</strong> <code>install.ps1</code></td></tr><tr><td>Update anything</td><td>re-run whichever of the above applies</td></tr><tr><td>Uninstall</td><td>delete things by hand</td></tr><tr><td>Repair</td><td>no path at all</td></tr></tbody></table>
+<p>Four installers, two of them platform-paired, and no uninstall or update story.</p>
+<h2>The failure mode that motivates it</h2>
+<p>The <code>/restore</code> installers <strong>bake absolute paths</strong> (interpreter + entry point) into <code>~/.claude/commands/restore.md</code> at install time. Move or rename the checkout and the command silently breaks — it points at something that no longer exists, and nothing tells the user why. A <code>repair</code> verb that re-resolves and rewrites those paths is the concrete case; "my install got weird" is the general one.</p>
+<p>Related known repair cases:</p>
+<ul><li>Missing or rebuilt venv (the interpreter path goes stale the same way).</li><li>An unsigned <code>.app</code> re-prompting for Automation permission after each rebuild (<a href="../Tickets.md">TLA-0003</a>).</li><li>A stale Dock icon after an in-place reinstall (macOS caches by path).</li></ul>
+<h2>Candidate surface</h2>
+<p><code>update</code> · <code>install</code> · <code>uninstall</code> · <code>reinstall</code> · <code>repair</code> — as Claude Code skills, CLI verbs, or both. Worth deciding <em>which</em>: a CLI verb works everywhere and is scriptable; a skill is more discoverable from inside a pane, which is where users already are.</p>
+<h2>Overlap — decide before building</h2>
+<p>This is not a fresh idea, and three tickets now circle the same ground:</p>
+<ul><li><strong><a href="../Tickets.md">TLA-0012</a></strong> — design the install/setup and maintenance/update flows for going live. The umbrella.</li><li><strong><a href="../Tickets.md">TLA-0010</a></strong> — streamline pushing updates to the installed Dock app (py2app alias mode, symlinked package, or running the GUI from source).</li><li><strong>TLA-0020</strong> (this) — the user-facing command surface over all of it.</li></ul>
+<p><strong>First action on this ticket is a merge decision, not code:</strong> does TLA-0020 supersede TLA-0012 and TLA-0010, or is it the interface layer on top of them? Building the commands before settling that risks a third partial answer to the same question.</p>
+</main></body></html>
