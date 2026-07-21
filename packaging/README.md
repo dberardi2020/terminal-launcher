@@ -65,9 +65,15 @@ powershell -ExecutionPolicy Bypass -File packaging\windows\install-shortcut.ps1
 powershell -ExecutionPolicy Bypass -File packaging\windows\install-shortcut.ps1 -Uninstall
 ```
 
-It resolves `pythonw.exe` via the `py` launcher, sets the working directory to the
-checkout (so `-m terminal_launcher` resolves), and uses `windows/app.ico`. Needs only
-Python + `pywebview` — no PyInstaller. Verified on Windows 11.
+It resolves `pythonw.exe` via the `py` launcher and sets the working directory to the
+checkout (so `-m terminal_launcher` resolves). Needs only Python + `pywebview` — no
+PyInstaller. Verified on Windows 11.
+
+The icon is **copied to `%LOCALAPPDATA%\Terminal Launcher\app.ico`** and the shortcut
+points there rather than into the checkout. Two reasons: the Start Menu entry keeps its
+icon if the checkout ever moves, and Windows' shell icon cache will serve a *stale* icon
+for a path it has already seen — even after the file changes — so installing to a fresh
+path is the reliable way to make a new icon actually show up. `-Uninstall` removes it.
 
 **Icon:** `windows/app.ico` is committed (multi-size, 16–256 px) and used by both the
 shortcut and the PyInstaller spec. Regenerate it from the master `icon.png` with Pillow:

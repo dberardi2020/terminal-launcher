@@ -15,9 +15,13 @@ $ErrorActionPreference = 'Stop'
 $repo = (Resolve-Path (Join-Path $PSScriptRoot '..\..')).Path
 $lnk  = Join-Path $env:APPDATA 'Microsoft\Windows\Start Menu\Programs\Terminal Launcher.lnk'
 
+$iconDir = Join-Path $env:LOCALAPPDATA 'Terminal Launcher'
+$icon    = Join-Path $iconDir 'app.ico'
+
 if ($Uninstall) {
     if (Test-Path $lnk) { Remove-Item $lnk -Force; Write-Output "removed: $lnk" }
     else                { Write-Output "nothing to remove at: $lnk" }
+    if (Test-Path $iconDir) { Remove-Item $iconDir -Recurse -Force; Write-Output "removed: $iconDir" }
     return
 }
 
@@ -27,7 +31,15 @@ if (-not (Test-Path $pythonw)) {
     throw "pythonw.exe not found (looked at '$pythonw'). Is Python installed?"
 }
 
-$icon = Join-Path $repo 'packaging\windows\app.ico'
+# Copy the icon out of the checkout into LocalAppData and point the shortcut there.
+# Two reasons: the shortcut keeps working if the checkout ever moves, and Windows'
+# shell icon cache will happily serve a stale icon for a path it has already seen —
+# even after the file changes — so a fresh path is the reliable way to bust it.
+$src = Join-Path $repo 'packaging\windows\app.ico'
+if (Test-Path $src) {
+    New-Item -ItemType Directory -Force -Path $iconDir | Out-Null
+    Copy-Item $src $icon -Force
+}
 
 $sc = (New-Object -ComObject WScript.Shell).CreateShortcut($lnk)
 $sc.TargetPath       = $pythonw
