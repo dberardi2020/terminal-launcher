@@ -20,9 +20,9 @@ Terminal windows on Windows).
 
 - **Pane** — a terminal identity: `name · color · target dir · model`. Reusable.
 - **Layout** — the shape: `single` (1), `split` (2 side-by-side), `combo` (3 — one full
-  pane + two stacked), `quad` (2×2). `split` and `combo` can be **flipped** horizontally
-  (saved per workspace). Leave slots empty and those positions are left as **real desktop
-  gaps** on launch — every filled slot is its own window at its true position; empties
+  pane + two stacked), `quad` (2×2). `split` and `combo` can be flipped horizontally
+  (saved per workspace). Leave slots empty and those positions are left as real desktop
+  gaps on launch — every filled slot is its own window at its true position; empties
   never launch a shell.
 - **Workspace** — a saved composition: a layout with a pane assigned to each slot.
 
@@ -57,7 +57,7 @@ add, edit, recolor, and retarget them without leaving the window.
 
 ## Install
 
-**Recommended — install the command with [pipx](https://pipx.pypa.io):**
+**Recommended** — install the command with [pipx](https://pipx.pypa.io):
 
 ```sh
 pipx install git+https://github.com/dberardi2020/terminal-launcher.git
@@ -66,7 +66,7 @@ pipx install git+https://github.com/dberardi2020/terminal-launcher.git
 That puts a `terminal-launcher` command on your `PATH` in its own isolated environment —
 same on macOS, Linux, and Windows.
 
-**Or run it straight from a checkout, no install at all:**
+**From a checkout** — no install at all:
 
 ```sh
 git clone https://github.com/dberardi2020/terminal-launcher.git
@@ -83,13 +83,9 @@ terminal-launcher new         # interactively compose + save a workspace
 terminal-launcher launch Docs # tile it up
 ```
 
-On macOS, optionally install the **`/restore`** Claude Code command as part of setup — it
-re-applies a pane's colour + name after `/clear` (see
-[Restore identity](#restore-identity-after-clear-claude-code)):
-
-```sh
-./integrations/claude-code/install.sh
-```
+Optionally add the `/restore` Claude Code command as part of setup — it re-applies a pane's
+color and name after `/clear`. See
+[Restore identity](#restore-identity-after-clear-claude-code) for the one-line installer.
 
 ### Hand it to your coding agent
 
@@ -106,7 +102,7 @@ https://github.com/dberardi2020/terminal-launcher
 - Then run `terminal-launcher init` to seed my config, and walk me through
   `terminal-launcher new` to compose my first workspace.
 - Optional (needs a checkout): add the `/restore` Claude Code command, which re-applies
-  a pane's colour + name after `/clear` —
+  a pane's color and name after `/clear` —
   `./integrations/claude-code/install.sh` on macOS/Linux, or
   `powershell -ExecutionPolicy Bypass -File integrations\claude-code\install.ps1` on Windows.
 
@@ -130,7 +126,7 @@ You can also build a Dock/Start-Menu app for the visual composer — **macOS** v
 | `panes` | List configured panes. |
 | `preview <name>` | Text preview of a workspace's layout. |
 | `launch <name>` | Launch a workspace. `--dry-run` prints the plan; `--inject-color` types `/color` into each session. |
-| `new` | Interactively compose a **new** workspace and save it. |
+| `new` | Interactively compose a *new* workspace and save it. |
 | `edit <name>` | Interactively edit an existing workspace. |
 | `delete <name>` | Remove a workspace. |
 | `pane-new` | Interactively add a new pane (terminal identity). |
@@ -138,7 +134,7 @@ You can also build a Dock/Start-Menu app for the visual composer — **macOS** v
 | `init` | Create a starter config from the bundled example. |
 | `restore` | Re-apply this pane's `/color` + `/rename` after Claude Code's `/clear` (see [Restore identity](#restore-identity-after-clear-claude-code)). `--detect-only` prints the identity without injecting. |
 
-The interactive `new` / `edit` / `pane-new` verbs **write back to the config** — the CLI
+The interactive `new` / `edit` / `pane-new` verbs write back to the config — the CLI
 and the visual composer edit the same file and never diverge.
 
 ## Configuration
@@ -151,26 +147,26 @@ Resolution order:
 3. `~/.config/terminal-launcher/workspaces.json`
 
 See [`workspaces.example.json`](workspaces.example.json) for the shape. Model precedence
-when launching a slot: **slot override → pane default → global default**.
+when launching a slot: `slot override → pane default → global default`.
 
 ## Identity in-session
 
 A launched pane carries its identity three ways: the Claude **session name**
 (`claude -n <name>`), the **pane title** (the iTerm2 session name on macOS, or the `wt`
-tab title on Windows), and — optionally — the Claude prompt-bar **color** (`/color <name>`,
+tab title on Windows), and — optionally — the prompt-bar **color** (`/color <name>`,
 injected with `--inject-color` or `settings.injectColor`). On macOS injection targets the
 session directly (no Accessibility permission); on Windows it briefly focuses the window to
 paste the command.
 
 ## Restore identity after `/clear` (Claude Code)
 
-That in-session identity has one weak spot: Claude Code's **`/clear`** (and reconnecting
-to a session) resets it — the colour and name are gone even though the pane is still "the
-API pane." The bundled **`/restore`** slash command puts it back. Run it right after
-`/clear` and it re-detects which pane you're in — from the working directory, against your
-`panes` registry — and re-issues `/color` and `/rename`. Detection is cross-platform; the
+That in-session identity has one weak spot: Claude Code's `/clear` (and reconnecting to a
+session) resets it — the color and name are gone even though the pane is still "the API
+pane." The bundled `/restore` slash command puts it back. Run it right after `/clear` and
+it re-detects which pane you're in — from the working directory, against your `panes`
+registry — and re-issues `/color` and `/rename`. Detection is cross-platform; the
 re-injection goes through the same backend seam that launches the panes (iTerm2 on macOS,
-Windows Terminal on Windows).
+Windows Terminal on Windows). Verified on both.
 
 Install the command once — macOS/Linux, or Windows:
 
@@ -181,17 +177,14 @@ powershell -ExecutionPolicy Bypass -File integrations\claude-code\install.ps1  #
 
 Then, in any launched pane, run `/restore` after a `/clear` — it's the packaged
 `terminal-launcher restore` under the hood. Details and options:
-[`integrations/claude-code/`](integrations/claude-code/README.md). *(macOS is verified;
-the Windows Terminal path is implemented and pending a real-session check, like the rest of
-the Windows backend.)*
+[`integrations/claude-code/`](integrations/claude-code/README.md).
 
 ## Platform status
 
-- **macOS** — working and verified end-to-end (spawn, tile, name, title, color) on the
-  **iTerm2** backend.
-- **Windows** — native **Windows Terminal** backend; geometry, window discovery, and
-  placement are live-verified, and the `/color` paste path awaits one real-session smoke
-  test (primary monitor only for now). See
+- **macOS** — verified end-to-end (spawn, tile, name, title, color) on the iTerm2 backend.
+- **Windows** — verified end-to-end on the native Windows Terminal backend: geometry, window
+  discovery, placement, and `/color` injection. Multi-monitor is not done yet (primary
+  monitor only). See
   [`docs/product/Platforms-and-Status.md`](docs/product/Platforms-and-Status.md).
 
 ## The UI
@@ -201,15 +194,15 @@ Two composers over the same config:
 - **CLI** (`new` / `edit`) — headless and scriptable.
 - **Visual composer** (`terminal-launcher gui`) — a native window (pywebview, no web
   server): a launchpad of workspace cards, a click-a-cell slot editor, and inline pane
-  management. It opens **maximized**, and on a fleeting launch it closes behind you.
+  management. It opens maximized, and on a fleeting launch it closes behind you.
 
 ## Documentation
 
 Full docs live in [`docs/`](docs/README.md):
 
-- **[Product docs](docs/product/README.md)** — the product, for any stakeholder.
-- **[Technical docs](docs/technical/README.md)** — the code, for developers.
-- **[concept.md](docs/concept.md)** · **[decisions/](docs/decisions/)** — the canonical concept and the architecture decision records.
+- [Product docs](docs/product/README.md) — the product, for any stakeholder.
+- [Technical docs](docs/technical/README.md) — the code, for developers.
+- [concept.md](docs/concept.md) · [decisions/](docs/decisions/) — the canonical concept and the architecture decision records.
 
 ## License
 

@@ -64,6 +64,5 @@ splits the work the same way the rest of the tool does:
   no focus/Accessibility needed) and **Windows Terminal** on Windows (clipboard-paste into
   the current window).
 
-So `/restore` follows the platform automatically. macOS is verified; the Windows Terminal
-injector is implemented and pending a real-session check, like the rest of the Windows
-backend.
+So `/restore` follows the platform automatically. Both paths are verified end-to-end in
+real sessions — see [ADR 0009](../../docs/decisions/0009-restore-pane-identity.md).

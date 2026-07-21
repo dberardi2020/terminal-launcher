@@ -46,18 +46,18 @@ resulting layout. **An empty slot never launches a blank shell** — it's simply
 
 - **macOS** — **working and verified end-to-end** (spawn, tile, name, title, color) on
   the **iTerm2** backend. The actively used, tested path.
-- **Windows** — **native Windows Terminal backend, mostly verified.** Geometry, window
+- **Windows** — **native Windows Terminal backend, verified end-to-end.** Geometry, window
   discovery, placement, and DWM-border compensation are live-tested (the visible frame
-  lands pixel-exact); the `claude` spawn + `/color` clipboard-paste injection is written to the
-  proven pattern and awaits a real-session smoke test. Placement is primary-monitor only
-  for now.
+  lands pixel-exact), and the `claude` spawn + `/color` clipboard-paste injection is
+  confirmed in real sessions — including `/restore` re-injection (see
+  [ADR 0009](../decisions/0009-restore-pane-identity.md)). Placement is primary-monitor
+  only for now.
 - **Other platforms** — no native backend; the launcher reports no terminal.
 
 ## Deferred / not yet built
 
-- **Windows `/color` smoke test** — the paste-injection path needs one real launch to
-  confirm the command lands cleanly in Claude's TUI. Multi-monitor placement is also not
-  yet done (primary monitor only).
+- **Multi-monitor placement** — slot rectangles derive from the primary monitor's work
+  area only, so a workspace always lands on the primary display (TLA-0014).
 - **Heterogeneous panes** — non-terminal panes (a browser, a file manager) tiled
   alongside Claude terminals. This needs a general OS-window placement layer. Direction
   recorded in [ADR 0004](../decisions/0004-heterogeneous-panes-and-window-placement.md); not

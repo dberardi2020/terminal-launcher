@@ -113,8 +113,8 @@ and one-command launch of a whole multi-pane arrangement.
 
 ## Deferred
 
-- **Windows `/color` smoke test** — the native Windows Terminal backend is built and its
-  placement verified; the `/color` clipboard-paste path awaits one real-session run.
+- **Multi-monitor placement** — slot rectangles derive from the primary monitor's work
+  area only, so a workspace always lands on the primary display.
 - **Heterogeneous panes** — non-terminal panes (a browser, a file manager) tiled
   alongside Claude terminals; needs an OS-window placement layer. ADR 0004.
 - **Directory-owned identity** — whether a pane's identity should travel with its
