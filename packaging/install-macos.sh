@@ -9,6 +9,12 @@
 # Usage:  ./packaging/install-macos.sh
 set -euo pipefail
 
+# An installed .app exports PYTHONHOME/PYTHONPATH for its own embedded interpreter, and
+# any pane it launched inherits them. Running this build from such a pane makes setuptools
+# resolve out of the *bundle's* stdlib and die ("No module named 'jaraco.functools'"), so
+# scrub before doing anything. Same root cause as the launch-path fix in backend.py.
+unset PYTHONHOME PYTHONPATH
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 

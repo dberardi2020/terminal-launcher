@@ -49,6 +49,12 @@ Drag `dist/Terminal Launcher.app` to `/Applications`. Double-clicking opens the 
 maximized (via `app_main.py` → `gui.run()`); a fleeting launch exits the app behind you.
 `build/` and `dist/` are git-ignored throwaways.
 
+**Building from a launched pane used to fail** with `No module named 'jaraco.functools'`:
+an installed `.app` exports `PYTHONHOME`/`PYTHONPATH` at its own `Contents/Resources`, panes
+inherit them, and setuptools then resolves out of the *bundle's* stdlib instead of the venv.
+`packaging/install-macos.sh` unsets both up front; if you invoke `setup_py2app.py` by hand
+from a pane, prefix it with `env -u PYTHONHOME -u PYTHONPATH`. (TLA-0021.)
+
 ### Two things the bundle gets right (and why they're fragile)
 
 1. **`terminal_launcher` is shipped unzipped.** `setup_py2app.py` lists it under `packages` so
