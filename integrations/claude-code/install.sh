@@ -40,10 +40,13 @@ if [[ ! -x "$PYTHON" ]]; then
   exit 1
 fi
 
+# The entry script adds the repo to sys.path itself, so no PYTHONPATH juggling — and we
+# drop PYTHONHOME/PYTHONPATH because an installed .app can leave them pointing elsewhere.
+RUN="env -u PYTHONHOME -u PYTHONPATH \"$PYTHON\" \"$REPO/bin/terminal-launcher\" restore"
+
 mkdir -p "$CMD_DIR"
-sed -e "s|{{PYTHON}}|$PYTHON|g" -e "s|{{REPO}}|$REPO|g" \
-  "$HERE/restore.md.template" > "$DEST"
+sed -e "s|{{RUN}}|$RUN|g" "$HERE/restore.md.template" > "$DEST"
 
 echo "Installed /$NAME -> $DEST"
-echo "  runs: $PYTHON -m terminal_launcher restore   (from $REPO)"
+echo "  runs: $RUN"
 echo "Use it inside any launched Claude Code pane: run /$NAME right after /clear."

@@ -3,8 +3,8 @@ Restore this Claude Code session's **pane identity** — re-apply `/color` and `
 `$ARGUMENTS` is an optional **follow-up task** to continue with once identity is restored.
 
 **Run:**
-```bash
-env -u PYTHONHOME PYTHONPATH="{{REPO}}" "{{PYTHON}}" -m terminal_launcher restore
+```
+{{RUN}}
 ```
 
 **Then interpret the output:**

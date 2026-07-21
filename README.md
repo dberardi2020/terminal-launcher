@@ -165,10 +165,11 @@ API pane." The bundled **`/restore`** slash command puts it back. Run it right a
 re-injection goes through the same backend seam that launches the panes (iTerm2 on macOS,
 Windows Terminal on Windows).
 
-Install the command once:
+Install the command once — macOS/Linux, or Windows:
 
 ```sh
-./integrations/claude-code/install.sh      # adds /restore to ~/.claude/commands
+./integrations/claude-code/install.sh                                          # macOS/Linux
+powershell -ExecutionPolicy Bypass -File integrations\claude-code\install.ps1  # Windows
 ```
 
 Then, in any launched pane, run `/restore` after a `/clear` — it's the packaged

@@ -13,16 +13,30 @@ it reads the same config Terminal Launcher launches from.
 
 ## Install
 
+**macOS / Linux**
+
 ```sh
-./integrations/claude-code/install.sh          # installs as /restore
+./integrations/claude-code/install.sh              # installs as /restore
 ./integrations/claude-code/install.sh tl-restore   # or pick your own command name
 ./integrations/claude-code/install.sh --uninstall  # remove it
 ```
 
-The installer writes `~/.claude/commands/<name>.md` with this checkout's venv-python and
-script paths baked in. **Re-run it if you move the checkout.** It needs the venv built
-with the `iterm2` library (see the repo README) — that's the interpreter `/restore` uses
-to talk to iTerm2.
+**Windows**
+
+```powershell
+powershell -ExecutionPolicy Bypass -File integrations\claude-code\install.ps1
+powershell -ExecutionPolicy Bypass -File integrations\claude-code\install.ps1 -Name tl-restore
+powershell -ExecutionPolicy Bypass -File integrations\claude-code\install.ps1 -Uninstall
+```
+
+Both installers are twins: same command name, same `restore.md.template`, same generated
+file at `~/.claude/commands/<name>.md`. Only the invocation line inside differs — macOS
+scrubs `PYTHONHOME`/`PYTHONPATH` (an installed `.app` can leave them pointing elsewhere),
+which Windows doesn't need.
+
+They bake this checkout's python + entry-point paths into the command, so **re-run the
+installer if you move the checkout.** Each needs the project venv built (that's the
+interpreter `/restore` runs under).
 
 ## Use
 
