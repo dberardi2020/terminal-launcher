@@ -27,9 +27,19 @@ if ($Uninstall) {
     return
 }
 
+# Prefer the repo venv, but don't REQUIRE it the way install.sh does. That requirement is
+# macOS-specific: the iTerm2 backend needs the third-party `iterm2` lib. The Windows
+# Terminal backend is pure ctypes and the CLI is stdlib-only, so `restore` runs fine on a
+# system Python - demanding a venv would block Windows users on a dependency that only
+# exists on the other platform.
 $python = Join-Path $repo '.venv\Scripts\python.exe'
 if (-not (Test-Path $python)) {
-    throw "no venv python at '$python'. Create the venv first (it needs the project deps) - see the README."
+    $fallback = Get-Command py, python -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $fallback) {
+        throw "no Python found: no venv at '$python', and neither 'py' nor 'python' is on PATH."
+    }
+    $python = $fallback.Source
+    Write-Output "no repo venv - using the Python on PATH: $python"
 }
 
 $entry = Join-Path $repo 'bin\terminal-launcher'

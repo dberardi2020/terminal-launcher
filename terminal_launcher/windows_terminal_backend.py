@@ -379,34 +379,47 @@ def _paste_and_enter() -> None:
     _send([_vkey(_VK_RETURN, False), _vkey(_VK_RETURN, True)])
 
 
-def _paste_command(hwnd: int, text: str) -> None:
-    """Focus `hwnd` and paste `text` + Enter, via the clipboard.
+def _paste_command(hwnd: int, text: str) -> bool:
+    """Focus `hwnd` and paste `text` + Enter, via the clipboard. True if it landed.
 
     Clipboard paste, not per-character typing: the whole command lands atomically, so
     autocomplete can't split it — far fewer synthetic input events than typing each
     letter. The clipboard is saved and restored around the paste, and a named mutex
     serializes the save/set/paste/restore so concurrent launches can't clobber each
-    other."""
+    other.
+
+    Restoring the clipboard is in a `finally`: bailing out midway (e.g. focus refused)
+    must not leave the user's clipboard holding our command text. The bool return lets
+    callers that care distinguish "pasted" from "skipped" — `restore_current` raises on
+    False so the CLI can't report success for a paste that never happened, while
+    launch-time injection stays lenient and merely logs."""
     lock = _acquire_lock()
+    saved = None
+    clobbered = False
     try:
         saved = _clip_get()
         if not _clip_set(text):
             _log.warning("could not set clipboard for %r; skipping", text)
-            return
+            return False
+        clobbered = True
         time.sleep(0.1)
         if not _force_foreground(hwnd):
             _log.warning("could not foreground window for %r; skipping", text)
-            return
+            return False
         _paste_and_enter()
         time.sleep(0.1)
-        if saved is not None:
-            _clip_set(saved)   # restore the user's clipboard
+        return True
     finally:
+        if clobbered and saved is not None:
+            _clip_set(saved)   # restore the user's clipboard, success or not
         _release_lock(lock)
 
 
 def _inject_color(hwnd: int, color: str) -> None:
-    """Focus the window and paste `/color <name>` + Enter (launch-time injection)."""
+    """Focus the window and paste `/color <name>` + Enter (launch-time injection).
+
+    Deliberately lenient: a failed colour paste shouldn't abort a multi-pane launch,
+    so the miss is logged inside `_paste_command` and the return is ignored."""
     _paste_command(hwnd, f"/color {color}")
 
 
@@ -421,22 +434,32 @@ def restore_current(color: str, name: str) -> None:
 
     Unlike launch (which places windows it just spawned), restore targets the wt
     window this Claude session runs in — taken as the foreground window, which is the
-    focused pane the user runs `/restore` from; it falls back to the sole wt window if
-    the foreground isn't one. Each command is pasted via the clipboard, exactly like
-    launch-time `/color` injection.
+    focused pane the user runs `/restore` from. Each command is pasted via the
+    clipboard, exactly like launch-time `/color` injection.
 
-    NOTE: mirrors the macOS restore path but is not yet verified on a real Windows
-    session (the foreground-window assumption in particular) — see the backlog."""
+    When the foreground window ISN'T a wt window (the user clicked away mid-command) we
+    only fall back if exactly ONE wt window exists and the target is therefore
+    unambiguous. Picking an arbitrary one out of several would paste `/color` +
+    `/rename` into an unrelated Claude session — a wrong, silent, user-visible edit —
+    so ambiguity is an error instead."""
     _configure()
     u = ctypes.windll.user32
-    u.GetForegroundWindow.restype = wintypes.HWND   # else a 64-bit HWND truncates to int
-    hwnd = u.GetForegroundWindow()
+    hwnd = u.GetForegroundWindow()   # restype set to HWND in _configure(): no truncation
     if _class_name(hwnd) != _WT_CLASS:
-        hwnd = next(iter(_wt_windows()), 0)
+        windows = _wt_windows()
+        if len(windows) != 1:
+            raise RuntimeError(
+                "the focused window is not a Windows Terminal window, and "
+                f"{len(windows)} are open — can't tell which pane to restore. "
+                "Click the pane you want to restore, then run it again.")
+        hwnd = next(iter(windows))
     if not hwnd:
         raise RuntimeError("could not find a Windows Terminal window to restore into")
-    _paste_command(hwnd, f"/color {color}")
-    _paste_command(hwnd, f"/rename {name}")
+    for cmd in (f"/color {color}", f"/rename {name}"):
+        if not _paste_command(hwnd, cmd):
+            raise RuntimeError(
+                f"could not inject {cmd!r} — the target window refused focus. "
+                "Another app may be holding the foreground; try again.")
 
 
 # ---- command building -------------------------------------------------------
