@@ -9,23 +9,25 @@
 | Platform | Backend | Install |
 |---|---|---|
 | **macOS** | [iTerm2](https://iterm2.com) | `brew install --cask iterm2` |
-| **elsewhere** | [WezTerm](https://wezterm.org) | `winget install wez.wezterm` |
+| **Windows** | [Windows Terminal](https://aka.ms/terminal) | `winget install Microsoft.WindowsTerminal` |
 
-On macOS, WezTerm is also the **fallback** if iTerm2 isn't installed.
+Other platforms have no native backend yet; there the launcher reports no terminal and
+does nothing.
 
-## How the two backends differ
+## How the two backends work
 
-Both open your workspace tiled; they differ in *how*, and in how they handle a
-**partial** layout (a workspace with an empty slot):
+Both realize the **same** model: every filled slot is its own OS window placed at its
+position on screen, and an empty slot is left as a **real desktop gap** — for every
+layout, on both platforms. A full quad is four windows in the four quadrants; a partial
+quad is however-many windows with gaps where the empties are.
 
-| | Full layout | Partial layout (empty slots) |
-|---|---|---|
-| **iTerm2 (macOS)** | one maximized split-pane window | one window per filled slot at its true position; **empty slots left as real desktop gaps** |
-| **WezTerm (elsewhere)** | one split-pane window | **compacted** — empties dropped, filled panes expand to fill; no desktop gap |
+| | What a launch does |
+|---|---|
+| **iTerm2 (macOS)** | a window per filled slot via the iTerm2 API, placed at its rect |
+| **Windows Terminal (Windows)** | a `wt` window per filled slot, placed with `SetWindowPos` |
 
-The difference is deliberate: iTerm2 can place windows with no special permission, so it
-preserves the true geometry; WezTerm can't leave a hole (every pane region must run a
-program), so it compacts. Either way, **an empty slot never launches a blank shell.**
+They differ only in the mechanics of spawning and identity injection, never in the
+resulting layout. **An empty slot never launches a blank shell** — it's simply not there.
 
 ## Permissions
 
@@ -34,33 +36,42 @@ program), so it compacts. Either way, **an empty slot never launches a blank she
   driven. If denied, launching fails with a pointer to **System Settings › Privacy &
   Security › Automation**. Note this is Automation, *not* Accessibility — a lighter,
   one-time consent.
-- **Identity injection** (`/color`, session name, title) targets a specific pane
-  directly and needs **no** extra permissions.
+- **Windows / Windows Terminal** — **no permission prompt.** Spawning `wt` windows and
+  positioning them needs nothing special.
+- **Identity injection** (`/color`, session name, title) targets a specific window/session
+  directly. On macOS it needs no extra permission; on Windows it briefly focuses the target
+  window to type the command.
 
 ## Platform status
 
 - **macOS** — **working and verified end-to-end** (spawn, tile, name, title, color) on
-  the **iTerm2** backend. This is the actively used and tested path.
-- **Windows / other** — **unverified.** The WezTerm backend drives `wezterm cli`, which
-  is identical across platforms, so the commands are the same; only the initial GUI
-  start differs. Treat it as cross-platform *by construction* and verify before relying
-  on it.
+  the **iTerm2** backend. The actively used, tested path.
+- **Windows** — **native Windows Terminal backend, mostly verified.** Geometry, window
+  discovery, placement, and DWM-border compensation are live-tested (the visible frame
+  lands pixel-exact); the `claude` spawn + `/color` keystroke injection is written to the
+  proven pattern and awaits a real-session smoke test. Placement is primary-monitor only
+  for now.
+- **Other platforms** — no native backend; the launcher reports no terminal.
 
 ## Deferred / not yet built
 
-- **Windows verification** — the WezTerm path has only been run on macOS.
+- **Windows `/color` smoke test** — the keystroke-injection path needs one real launch to
+  confirm the command lands cleanly in Claude's TUI. Multi-monitor placement is also not
+  yet done (primary monitor only).
 - **Heterogeneous panes** — non-terminal panes (a browser, a file manager) tiled
-  alongside Claude terminals. This needs an OS-window placement layer (and, on macOS, an
-  Accessibility grant). Direction recorded in
-  [ADR 0004](../decisions/0004-heterogeneous-panes-and-window-placement.md); not scheduled.
+  alongside Claude terminals. This needs a general OS-window placement layer. Direction
+  recorded in [ADR 0004](../decisions/0004-heterogeneous-panes-and-window-placement.md); not
+  scheduled.
 - **Directory-owned identity** — whether a pane's identity should travel with its repo
   rather than live only in this config. Open question.
-- **Dock `.app` packaging** — a double-clickable build of the visual composer via
-  py2app exists in [`packaging/`](../../packaging/); an unsigned bundle may re-prompt for
-  Automation after each rebuild.
+- **Packaging** — a double-clickable build of the visual composer exists for macOS (py2app,
+  in [`packaging/`](../../packaging/)) and Windows (PyInstaller, in
+  [`packaging/windows/`](../../packaging/windows/)); an unsigned macOS bundle may re-prompt
+  for Automation after each rebuild.
 
 ---
 
-*The reasoning behind the backend split lives in
-[ADR 0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md); the original
-terminal-layer decision in [ADR 0001](../decisions/0001-terminal-layer-and-core.md).*
+*The reasoning behind the uniform one-window-per-pane model and the Windows Terminal
+backend lives in [ADR 0008](../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md)
+(building on [0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md) and
+[0001](../decisions/0001-terminal-layer-and-core.md)).*

@@ -17,10 +17,10 @@ together. Terminal Launcher lets you define those terminals once as reusable
 XAML) built for one hard-coded set of panes. That machinery — PowerShell, the `.vbs`
 launcher, Windows window management, the fixed pane set — was incidental. Terminal
 Launcher keeps only the durable idea and implements it fresh: a **thin Python core**
-driving a **terminal backend** behind one interface — **iTerm2** on macOS, **WezTerm**
-elsewhere (see [`decisions/0001-terminal-layer-and-core.md`](decisions/0001-terminal-layer-and-core.md)
-for the core and [`decisions/0007-iterm2-backend-and-real-gap-layouts.md`](decisions/0007-iterm2-backend-and-real-gap-layouts.md)
-for the macOS iTerm2 backend).
+driving a **terminal backend** behind one interface — **iTerm2** on macOS, **Windows
+Terminal** on Windows (see [`decisions/0001-terminal-layer-and-core.md`](decisions/0001-terminal-layer-and-core.md)
+for the core, and [`decisions/0008-one-window-per-pane-and-windows-terminal-backend.md`](decisions/0008-one-window-per-pane-and-windows-terminal-backend.md)
+for the uniform one-window-per-pane model and the two native backends).
 
 ## Core concepts
 
@@ -52,10 +52,9 @@ saved per workspace. See
 ### Workspace
 
 A named, saved **composition**: a layout plus a specific pane assigned to each
-slot (a slot may be intentionally empty — on launch it is *dropped*, not run as a
-shell: compacted away under WezTerm, or left as a real desktop gap under iTerm2;
-see [`decisions/0005`](decisions/0005-combo-flip-and-partial-compaction.md) and
-[`decisions/0007`](decisions/0007-iterm2-backend-and-real-gap-layouts.md)).
+slot (a slot may be intentionally empty — on launch it is left as a **real desktop
+gap**, not run as a shell; see
+[`decisions/0008`](decisions/0008-one-window-per-pane-and-windows-terminal-backend.md)).
 Workspaces are the everyday entry point — you pick one and launch. (The config key
 is `workspaces`.)
 
@@ -98,9 +97,9 @@ See [`decisions/0003-visual-composer-pywebview.md`](decisions/0003-visual-compos
 
 A filled slot runs `claude -n <name> --model <model>` with the pane's target as
 the working directory. An empty slot launches nothing (see *Workspace* above).
-Identity is then applied: the pane's title (the iTerm2 session name, or the WezTerm
-tab title) is set to the pane name, and (optionally) `/color <name>` is injected
-into the Claude session. See
+Identity is then applied: the pane's title (the iTerm2 session name on macOS, or the
+`wt` tab title on Windows) is set to the pane name, and (optionally) `/color <name>` is
+injected into the Claude session. See
 [`decisions/0002-identity-injection.md`](decisions/0002-identity-injection.md).
 
 ## Essence vs. incidental
@@ -120,8 +119,8 @@ composer and launcher are the product.
 
 ## Deferred
 
-- **Windows verification** — the WezTerm backend (now the *non-macOS* path) is
-  cross-platform by construction but has only been run on macOS.
+- **Windows `/color` smoke test** — the native Windows Terminal backend is built and its
+  placement verified; the `/color` keystroke-injection path awaits one real-session run.
 - **Heterogeneous panes** — non-terminal panes (a browser, a file manager) tiled
   alongside Claude terminals; needs an OS-window placement layer. ADR 0004.
 - **Directory-owned identity** — whether a pane's identity should travel with its

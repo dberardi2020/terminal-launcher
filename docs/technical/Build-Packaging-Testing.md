@@ -8,9 +8,10 @@ No build step. Symlink the entry point onto `PATH`:
 ln -s "$(pwd)/bin/terminal-launcher" ~/.local/bin/terminal-launcher
 ```
 
-`python -m terminal_launcher` works too (via `__main__.py`). The CLI and the WezTerm
-backend are stdlib-only; install `requirements.txt` only if you need the visual
-composer (`pywebview`) or the iTerm2 backend (`iterm2`).
+`python -m terminal_launcher` works too (via `__main__.py`) — on Windows,
+`py -m terminal_launcher …`. The CLI and the Windows Terminal backend are stdlib-only;
+install `requirements.txt` only if you need the visual composer (`pywebview`) or the
+iTerm2 backend (`iterm2`).
 
 ## macOS Dock app (py2app)
 
@@ -29,9 +30,9 @@ maximized (via `app_main.py` → `gui.run()`); a fleeting launch exits the app b
 ### Two things the bundle gets right (and why they're fragile)
 
 1. **`terminal_launcher` is shipped unzipped.** `setup.py` lists it under `packages` so
-   py2app copies it as a real directory. The launcher reads `web/builder.html` and
-   `assets/wezterm-maximize.lua` **off disk via `__file__`** — a zipped egg would break
-   both. If you ever see the GUI fail to load its HTML in a bundle, this is why.
+   py2app copies it as a real directory. The launcher reads `web/builder.html` **off disk
+   via `__file__`** — a zipped egg would break it. If you ever see the GUI fail to load its
+   HTML in a bundle, this is why.
 2. **`iterm2` is force-listed under `packages`.** It's imported lazily inside functions,
    so py2app's static import graph misses it; naming it explicitly pulls it in (and its
    deps — websockets, protobuf).
@@ -50,8 +51,9 @@ maximized (via `app_main.py` → `gui.run()`); a fleeting launch exits the app b
 
 A Dock/Finder launch gets a stripped PATH, so `gui.run()` calls `_inherit_login_path()`
 — it runs the login shell (`$SHELL -lic 'echo $PATH'`) and merges in the user/Homebrew
-bins so `wezterm`, `claude`, and `iterm2` resolve. (`wezterm.py` and `iterm2_backend.py`
-additionally resolve `claude` to an absolute path for the same reason.)
+bins so `claude` and `iterm2` resolve. (`iterm2_backend.py` additionally resolves `claude`
+to an absolute path for the same reason.) It is a no-op on Windows, where `wt`/`claude`
+resolve normally.
 
 ### TCC persistence caveat
 
@@ -66,6 +68,30 @@ referenced by `setup.py`. Regenerate the master with `python packaging/make-icon
 then rebuild the `.icns` (the `sips`/`iconutil` recipe is in
 [`packaging/README.md`](../../packaging/README.md)).
 
+## Windows (.exe via PyInstaller)
+
+`packaging/windows/terminal-launcher.spec` builds a windowed `.exe` around the visual
+composer, mirroring what py2app does on macOS. From the repo root:
+
+```powershell
+py -m venv .venv; .venv\Scripts\Activate.ps1
+pip install -r requirements.txt pyinstaller           # first time
+pyinstaller packaging\windows\terminal-launcher.spec  # -> dist\Terminal Launcher\
+```
+
+The spec uses `collect_all('webview')` to pull pywebview's WebView2 loader and data files
+into the bundle, and ships `terminal_launcher/web/` as data (the GUI reads `builder.html`
+off disk via `__file__`). `build/` and `dist/` are git-ignored throwaways.
+
+**No bundle is needed to run it.** The CLI and the Windows Terminal backend are
+stdlib-only, so `py -m terminal_launcher launch <ws>` works with nothing installed. For a
+double-clickable GUI *without* building an `.exe`, `packaging/windows/terminal-launcher.cmd`
+runs `pythonw -m terminal_launcher gui` (no console window) — pin it to Start or make a
+shortcut; installing `pywebview` is the only requirement for the GUI.
+
+*Icon:* PyInstaller wants a Windows `.ico`; the spec uses `packaging/windows/app.ico` if
+present and omits the icon otherwise (generate one from `packaging/icon.png` when wanted).
+
 ## Testing
 
 `pytest` covers the **pure core** — no terminal, GUI, or subprocess is exercised. Run:
@@ -77,13 +103,14 @@ pytest
 | File | Covers |
 |---|---|
 | `tests/test_layouts.py` | `SPLIT_PLAN`/`CAPACITY`/`plan()` — the split geometry, flip mirroring (`right→left`, `bottom` untouched), flip is a no-op for single/quad, unknown layout → empty plan. |
-| `tests/test_model.py` | `resolve_workspace` (fill + mark empties, pad missing slots, model precedence, dangling-pane/unknown-layout errors), `compact` (drop + re-index, count→layout), `expand_target`, `find_workspace`. |
+| `tests/test_model.py` | `resolve_workspace` (fill + mark empties, pad missing slots, model precedence, dangling-pane/unknown-layout errors), `expand_target`, `find_workspace`. |
 | `tests/test_config.py` | `color_hex` for every named color, the atomic `save`/`load` round-trip, and — critically — **`LAYOUT_CAPACITY == CAPACITY`** so the two capacity tables can't drift. |
 
 ### What's not covered
 
-The backends (`iterm2_backend`, `wezterm`), the GUI bridge (`gui.py`), and `cli.py`'s
-wizard have no automated tests — they're I/O- and permission-bound. iTerm2's API does,
+The backends (`iterm2_backend`, `windows_terminal_backend`), the GUI bridge (`gui.py`),
+and `cli.py`'s wizard have no automated tests — they're I/O- and permission-bound.
+iTerm2's API does,
 however, make **self-validation by read-back** possible (a launch can be verified via
 the API + `screencapture` with no human), which is a future direction noted in
 [ADR 0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md).

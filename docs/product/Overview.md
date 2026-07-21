@@ -39,7 +39,7 @@ panes, launched through a `.vbs` script and Windows-specific window management.
 That machinery was **incidental**. What was durable was the *idea*: reusable pane
 identities, a small layout vocabulary, saved compositions, one-command launch. The
 rebuild keeps only that idea and implements it fresh as a **thin Python core** driving
-a **terminal backend** — iTerm2 on macOS, WezTerm elsewhere.
+a **terminal backend** — iTerm2 on macOS, Windows Terminal on Windows.
 
 | | |
 |---|---|
@@ -57,8 +57,8 @@ product.
   named, and reproducible.
 - People who want a **saved, one-command** way back into a familiar multi-terminal
   setup instead of rebuilding it each session.
-- macOS users today (verified end-to-end on iTerm2); cross-platform by construction,
-  with a WezTerm backend for elsewhere — see [Platforms & Status](Platforms-and-Status.md).
+- macOS (verified end-to-end on iTerm2) and Windows (native Windows Terminal backend) —
+  see [Platforms & Status](Platforms-and-Status.md).
 
 ## Next
 

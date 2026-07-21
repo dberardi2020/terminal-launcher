@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>0008 — One window per pane (all layouts) + a Windows Terminal backend; WezTerm removed</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>0008 — One window per pane (all layouts) + a Windows Terminal backend; WezTerm removed</h1>
+<p><strong>Status:</strong> Accepted · <strong>Date:</strong> 2026-07-21</p>
+<h2>Context</h2>
+<p>After <a href="0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a> the terminal layer had two backends behind the seam:</p>
+<ul><li><strong>iTerm2 (macOS)</strong> — a <em>full</em> layout opened as one maximized split-pane window; a <em>partial</em> layout opened one window per filled slot at its real rectangle (real desktop gaps).</li><li><strong>WezTerm (everywhere else)</strong> — one split-pane window, <em>compacting</em> partial layouts (drop empties) because it cannot leave a hole. This was also the "someday Windows" path, and it was never verified there.</li></ul>
+<p>Two things were unsatisfying:</p>
+<ol><li><strong>Two divergent layout models.</strong> Real gaps vs compaction; separate windows vs one split window. The same workspace was structurally different depending on backend, and the divergence kept <code>compact()</code>, a duplicated split-plan inside <code>wezterm.py</code>, and a fork in the docs alive.</li><li><strong>No native Windows story.</strong> The goal is for Windows to feel like macOS does now — real, separately-placed OS windows — not WezTerm's single-window multiplexer. WezTerm-on-macOS is exactly what motivated the iTerm2 move (0007); WezTerm-on-Windows would carry the same single-window feel.</li></ol>
+<p>We also weighed <em>leveraging the OS's native snapping</em> (macOS tiling, Windows Snap) for alignment. Neither OS exposes a supported way to <strong>invoke</strong> snapping programmatically — the only routes are synthesizing user input (fragile, timing-dependent) or the Accessibility/AX API (the very permission 0005/0007 were maneuvering to avoid). Self-placing a window at the snap <em>rectangle</em> gives identical alignment deterministically — which is what iTerm2 already does with <code>async_set_frame</code>.</p>
+<h2>Decision</h2>
+<p><strong>One uniform model on every platform, and a native backend per platform.</strong></p>
+<ol><li><strong>One real OS window per pane, in every layout, placed by geometry.</strong> Each filled slot opens as its own window at its slot rectangle (derived from the OS work area); empty slots are left as bare desktop (real gaps); no internal terminal splits. This <em>extends 0007's real-gap approach from partial layouts to all layouts</em> — a full quad is four windows in four quadrants, not one split-pane window.</li></ol>
+<ol><li><strong>Add a native Windows Terminal backend</strong> (<code>windows_terminal_backend.py</code>) that realizes the same model on Windows: spawn one <code>wt</code> window per slot, discover its window, and place it with <code>SetWindowPos</code> (compensating for per-monitor DPI and the DWM invisible border). Pure <code>ctypes</code>, no new dependency, no permission prompt.</li></ol>
+<ol><li><strong>Remove the WezTerm backend and <code>compact()</code>.</strong> With two native geometry backends, WezTerm's cross-platform parity bought nothing on the platforms in use, and it was the only thing keeping the divergent single-window / compaction model alive. It is re-addable later as a deliberate module (e.g. a Linux backend, where <code>--class</code> works) if an unknown-platform seat is ever wanted.</li></ol>
+<p><code>backend.py</code> now routes <code>Darwin → iTerm2</code>, <code>Windows → Windows Terminal</code>, and reports no backend elsewhere. The <code>available()</code> / <code>describe()</code> / <code>launch()</code> contract is unchanged.</p>
+<h2>Consequences</h2>
+<h3>Supersessions</h3>
+<ul><li><strong>Supersedes ADR 0005's Decision 3 (partial compaction) on all platforms.</strong> 0007 had already reversed it on the iTerm2 path; with WezTerm gone, compaction is removed entirely.</li><li><strong>Supersedes 0007's full-layout behavior on macOS.</strong> iTerm2's split-pane build for full layouts is retired; every layout now uses the separate-window path (<code>_slot_rects</code>).</li><li><strong>Further amends ADR 0001.</strong> WezTerm — 0001's terminal layer, already displaced on macOS by 0007 — is now removed everywhere. The thin-core / backend-seam design 0001 established is unchanged, and is exactly what made both this and the 0007 swap single-module changes.</li></ul>
+<h3>Placement is self-owned geometry, not OS snapping</h3>
+<p>Both backends place their <em>own</em> windows at computed rectangles — iTerm2 via <code>async_set_frame</code>, Windows Terminal via <code>SetWindowPos</code> — sourced from the OS work area so the alignment matches where the OS would snap. This is deterministic and permission-light. The only thing forgone is the OS <em>snap-group</em> behavior (taskbar grouping, shared-edge linked-resize), which is not programmatically creatable anyway and is undesirable for independent sessions.</p>
+<h3>Windows specifics</h3>
+<ul><li><strong>No permission prompt</strong> — unlike macOS's Automation consent for the iTerm2 API, positioning a window you spawned needs none.</li><li><strong>No per-pane text API.</strong> <code>wt</code> has no equivalent of iTerm2's <code>send-text</code>, so <code>/color</code> is injected by focusing the target window (<code>AttachThreadInput</code> to steal focus reliably) and typing via <code>SendInput</code> Unicode — Escape first, then per-character with a small delay, so Claude's slash-command autocomplete can't intercept and corrupt the command.</li><li><strong>DWM + DPI compensation.</strong> Win11 windows carry an invisible resize border; the placer reads <code>DWMWA_EXTENDED_FRAME_BOUNDS</code> and re-places so the <em>visible</em> frame lands exactly on the slot rect. The process is made per-monitor-DPI-aware so coordinates are physical pixels. <strong>Primary monitor only</strong> for now.</li><li><strong>64-bit HWND safety.</strong> ctypes arg/restypes are set so window handles aren't truncated to 32 bits.</li></ul>
+<h3>Other</h3>
+<ul><li><strong>Import safety.</strong> <code>backend.py</code> imports both native backends on every platform; each defers its heavy OS dependency (the <code>iterm2</code> lib; <code>ctypes.windll</code> / <code>WINFUNCTYPE</code>) to platform-only code paths, never at import time.</li><li><strong><code>layouts.py</code> split-plans</strong> (<code>plan()</code> / <code>SPLIT_PLAN</code>) are now used only to derive <code>CAPACITY</code> and by the unit tests — the native backends need slot <em>rectangles</em>, not split directions. The duplicated split-plan in <code>wezterm.py</code> is gone with the file.</li><li><strong>Packaging.</strong> macOS keeps py2app; Windows gets a PyInstaller spec (plus a zero-bundle <code>pythonw -m terminal_launcher gui</code> shim). See <a href="../technical/Build-Packaging-Testing.md">Build, Packaging &amp; Testing</a>.</li><li><strong>What's verified.</strong> On Windows: geometry, window discovery, placement, and DWM compensation are live-tested (the visible frame lands pixel-exact). The <code>claude</code> spawn + <code>/color</code> keystroke path is written to the proven pattern but awaits a real-session smoke test.</li></ul>
+</main></body></html>

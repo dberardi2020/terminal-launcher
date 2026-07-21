@@ -7,7 +7,7 @@ From nothing to a tiled, one-command Claude Code workspace.
 - **Python 3.10+** (developed on 3.14).
 - **A terminal backend** — the layer that spawns and tiles the panes:
   - **macOS → [iTerm2](https://iterm2.com)** — `brew install --cask iterm2`.
-  - **elsewhere → [WezTerm](https://wezterm.org)** — also the macOS fallback if iTerm2 isn't installed.
+  - **Windows → [Windows Terminal](https://aka.ms/terminal)** — `winget install Microsoft.WindowsTerminal`.
 - **Claude Code** (`claude`) on your `PATH` — what each filled pane runs.
 
 See [Platforms & Status](Platforms-and-Status.md) for details and permissions.
@@ -104,7 +104,7 @@ Claude with its assigned model. Useful flags:
 A launched pane carries its identity three ways:
 
 - **Session name** — `claude -n <name>`.
-- **Pane title** — the iTerm2 session name (or the WezTerm tab title).
+- **Pane title** — the iTerm2 session name (macOS) or the `wt` tab title (Windows).
 - **Color** *(optional)* — `/color <name>` injected into the Claude prompt bar, via
   `--inject-color` or `settings.injectColor`. Injection targets a specific pane
   directly, so it needs no Accessibility permission.

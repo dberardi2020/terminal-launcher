@@ -17,141 +17,130 @@ launch(layout, slots, inject_color: bool = False,
        flip: bool = False) -> None
 ```
 
-`slots` is a list of `model.ResolvedSlot`. `backend.py` is a pure router that re-exports
-these plus `name()` and `install_hint()`, forwarding to a selected implementation.
+`slots` is a list of `model.ResolvedSlot`. `backend.py` is a pure router that forwards to
+a selected implementation and adds `name()` / `install_hint()`.
 
-## Selection & fallback (`backend.py`)
+## Selection (`backend.py`)
 
 ```python
 def _impl():
-    if platform.system() == "Darwin" and iterm2_backend.available():
+    if iterm2_backend.available():            # macOS + iTerm2 installed
         return iterm2_backend
-    return wezterm
+    if windows_terminal_backend.available():  # Windows + wt on PATH
+        return windows_terminal_backend
+    return None                               # no native backend here
 ```
 
-- **macOS + iTerm2 available → `iterm2_backend`.**
-- **anything else → `wezterm`** — including a Mac *without* iTerm2 (the fallback lives
-  entirely in that `and`).
+- **macOS + iTerm2 → `iterm2_backend`.** `available()` requires `Darwin`,
+  `/Applications/iTerm.app`, and an importable `iterm2` lib.
+- **Windows + `wt` → `windows_terminal_backend`.** `available()` requires `Windows` and
+  `shutil.which("wt")`.
+- **Otherwise → none.** `available()` is False and `launch()` raises an actionable error.
 
-`iterm2_backend.available()` requires all three: `Darwin`, `/Applications/iTerm.app`
-exists, and `import iterm2` succeeds. `wezterm.available()` is just
-`shutil.which("wezterm") is not None`. `_impl()` runs fresh on every call — no caching,
-so installing a backend mid-session is picked up next call.
+`_impl()` runs fresh on every call — no caching — so installing a backend mid-session is
+picked up next call. Importing this module is safe on every platform: each backend defers
+its heavy OS dependency (the `iterm2` lib; `ctypes.windll` / `WINFUNCTYPE`) to
+platform-only code paths, never at import.
 
-## The defining difference: partial layouts
+## The shared model: one window per pane
 
-Both backends tile a **full** layout as one maximized, split-pane window. They diverge
-on **partial** layouts (a workspace with empty slots):
+Both backends realize the **same** model ([ADR 0008](../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md)):
+each *filled* slot is its own OS window placed at its slot rectangle; empty slots are left
+as bare desktop (real gaps). There is no full-vs-partial divergence and no compaction — a
+full quad is four windows in the four quadrants, just as a partial quad is however-many
+windows with gaps where the empties are.
 
-| | Full layout | Partial layout |
-|---|---|---|
-| **iTerm2 (macOS)** | one maximized split-pane window | **one window per filled slot** at its true screen rect; empty slots left as bare **desktop gaps** (`_build_gapped`) |
-| **WezTerm (other)** | one split-pane window | **`compact()`** — empties dropped, survivors re-indexed and tiled; **no gap** |
-
-Why: iTerm2 can place windows permission-free (via CoreGraphics geometry + its API), so
-it preserves true geometry. WezTerm *cannot leave a hole* — every pane region must run a
-program — and leaving a real gap would need the Accessibility grant WezTerm was chosen
-to avoid. This is [ADR 0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md)
-reversing [ADR 0005](../decisions/0005-combo-flip-and-partial-compaction.md)'s
-compaction on macOS only.
+Placement is **self-owned geometry**, not the OS snap UI. Neither Windows nor macOS
+exposes a supported way to *invoke* native snapping programmatically (only synthetic input
+or the Accessibility/AX API), so each backend computes rectangles from the OS work area
+and places its own windows there — deterministic, permission-light, and pixel-aligned to
+where the OS would snap.
 
 ## `iterm2_backend.py` — the iTerm2 Python API
 
 ### Async on its own event loop
-The whole build tree is `async def` (awaiting the iterm2 lib throughout). `launch()`
-creates a **fresh `asyncio` event loop** and runs `iterm2.run_until_complete(main,
-retry=False)` — its own loop because the launcher runs on a pywebview GUI worker thread
-with no ambient loop.
+The build tree is `async def` (awaiting the iterm2 lib throughout). `launch()` creates a
+**fresh `asyncio` event loop** and runs `iterm2.run_until_complete(main, retry=False)` —
+its own loop because the launcher runs on a pywebview GUI worker thread with no ambient
+loop.
 
 ### Auth: Automation, and why `retry=False`
-iTerm2's Python API gets its auth cookie through iTerm2's AppleScript automation
-surface — so this needs **Automation** permission (not Accessibility). The lib's
-built-in connect-retry **loops forever** on an auth denial, so it's disabled; the code
-does its own waiting in `_ensure_running()` and, on failure, re-raises a `RuntimeError`
-pointing at *System Settings › Privacy & Security › Automation*.
+iTerm2's Python API gets its auth cookie through iTerm2's AppleScript automation surface —
+so this needs **Automation** permission (not Accessibility). The lib's built-in
+connect-retry **loops forever** on an auth denial, so it's disabled; the code does its own
+waiting in `_ensure_running()` and, on failure, re-raises a `RuntimeError` pointing at
+*System Settings › Privacy & Security › Automation*.
 
 ### Bringing iTerm2 up without a rogue window
 - `_ensure_running()` — if iTerm2 isn't running, `open -g -a iTerm` (background), poll
   `pgrep -x iTerm2` up to ~8 s, then a 1.5 s settle for the API socket.
-- It **deliberately never re-`open`s an already-running iTerm2** — activating a
-  zero-window iTerm2 pops an empty default window.
-- `cold = not _is_running()` is captured *before* ensuring — it gates stray-window
-  cleanup.
+- It **deliberately never re-`open`s an already-running iTerm2** — activating a zero-window
+  iTerm2 pops an empty default window.
+- `cold = not _is_running()` is captured *before* ensuring — it gates stray-window cleanup.
 
-### Spawning & tiling
+### Spawning & placing
 - A **dynamic profile** is written first to
   `~/Library/Application Support/iTerm2/DynamicProfiles/terminal-launcher.json` (iTerm2
-  hot-reloads that dir) — a dedicated One-Dark-ish / Menlo 13 profile that never touches
-  the user's own profiles.
-- Per-slot command + cwd ride in a write-only profile override
-  (`LocalWriteOnlyProfile`): custom command `claude -n <name> --model <model>` (or the
-  default shell for an empty slot), and a custom initial directory.
-- **Full** → `_build_split`: create the window, then for each later slot
-  `sessions[src].async_split_pane(vertical=(direction == "right"), …)` per
-  `layouts.plan(layout, flip)`. **Note `"right"` → `vertical=True`.** Finally
-  `async_set_frame(_screen_frame())` to maximize.
-- **Partial** → `_build_gapped`: each filled slot is its own window placed at
-  `_slot_rects(layout, flip)[slot.index]` (Cocoa coords, origin bottom-left; flip
-  mirrors x). Empty slots simply aren't created.
-- Screen size comes from **CoreGraphics via `ctypes`** (`CGMainDisplayID` /
+  hot-reloads that dir) — a dedicated One-Dark-ish / Menlo 13 profile that never touches the
+  user's own profiles.
+- Per-slot command + cwd ride in a write-only profile override (`LocalWriteOnlyProfile`):
+  custom command `claude -n <name> --model <model>` (or the default shell for an empty
+  slot), and a custom initial directory.
+- `_build` creates one window per filled slot and `async_set_frame`s it to
+  `_slot_rects(layout, flip)[slot.index]` (Cocoa coords, origin bottom-left; flip mirrors
+  x). Screen size comes from **CoreGraphics via `ctypes`** (`CGMainDisplayID` /
   `CGDisplayBounds`) — permission-free, no AppleScript prompt — minus a 25 px menu bar.
 
 ### Stray-window cleanup
-Only when `cold`, `_close_stray_default_window` closes a window **only** if it has
-exactly one tab / one session whose name is a bare login shell
-(`_SHELL_NAMES = {-zsh, zsh, -bash, …}`) — narrowly gated so it never kills a user's
-real window.
+Only when `cold`, `_close_stray_default_window` closes a window **only** if it has exactly
+one tab / one session whose name is a bare login shell (`_SHELL_NAMES = {-zsh, zsh, -bash,
+…}`) — narrowly gated so it never kills a user's real window.
 
-## `wezterm.py` — driving `wezterm cli`
+## `windows_terminal_backend.py` — `wt` + Win32 (ctypes)
 
-- **Compaction first:** `launch()` calls `model.compact(slots)` up front — WezTerm can't
-  hold a gap, so empties are dropped and the layout becomes the tightest fit.
-- **First pane, maximized:** `wezterm cli spawn --new-window` has no geometry flag, so
-  the first pane is started via `open -na WezTerm --args start …` (or `wezterm-gui` on
-  Windows) with `WEZTERM_CONFIG_FILE` pointed at the bundled `wezterm-maximize.lua`,
-  whose `gui-startup` hook maximizes the window. Subsequent panes split into it:
-  ```
-  wezterm cli split-pane --pane-id <src> --<direction> --percent 50 --cwd <dir> -- <prog>
-  ```
-- **Program:** filled slot → `-- <claude> -n <name> --model <model>` (claude resolved to
-  an absolute path, because a Dock-launched app hands WezTerm a minimal PATH); empty slot
-  → `[]` (a login shell, which re-sources PATH).
-- **Title:** `wezterm cli set-tab-title --pane-id <pid> <name>`.
-- It re-declares its own `SPLIT_PLAN`/`_plan`/`FLIPPABLE` locally instead of importing
-  `layouts.py` — a known drift risk on the [ADR 0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md)
-  backlog.
+- **Spawn.** One window per filled slot: `wt -w new -d <dir> --title <name> --tabColor <hex>
+  claude -n <name> --model <model>`. `-w new` forces a separate window (not a tab);
+  everything after the executable is passed to `claude` verbatim.
+- **Discover.** `wt` returns immediately after handing off to a WindowsTerminal host process
+  (new or existing), so the new window is found by **diffing the set of visible
+  `CASCADIA_HOSTING_WINDOW_CLASS` windows** before/after the spawn — not by PID.
+- **Place.** `SetWindowPos` to `_slot_rects(layout, flip)[slot.index]` (Win32 coords, origin
+  top-left, from `SPI_GETWORKAREA`). Two passes: place, then read
+  `DWMWA_EXTENDED_FRAME_BOUNDS` and re-place so the **visible** frame lands on the rect
+  (Win11's invisible resize border would otherwise leave a seam gap). The process is made
+  **per-monitor-DPI-aware** so coordinates are physical pixels. Primary monitor only for now.
+- **64-bit HWND safety.** ctypes arg/restypes are configured (`_configure()`) so handles
+  aren't truncated to 32-bit ints — the classic "wrong window" bug.
+- **No permission prompt** — positioning a window you spawned needs none.
 
-## Identity injection (both backends)
+## Identity injection
 
-Identity is three things — session **name/title**, and the Claude-side **`/color`**
+Identity is three things — the window **name/title**, and the Claude-side **`/color`**
 prompt tint:
 
-| | iTerm2 | WezTerm |
+| | iTerm2 | Windows Terminal |
 |---|---|---|
-| Name/title | `session.async_set_name(name)` | `wezterm cli set-tab-title …` |
-| `/color` text | `async_send_text("/color <c>")` | `send-text --pane-id … --no-paste "/color <c>"` |
-| Submit | separate `async_send_text("\r")` | separate `send-text … "\r"` |
-| Delays | 0.4 s after text, 0.2 s after CR | 0.4 s after text, 0.2 s after CR |
+| Name/title | `session.async_set_name(name)` | `wt --title <name>` (+ `--tabColor <hex>`) |
+| `/color` delivery | `async_send_text` — **no focus needed** | **focus the window** (`AttachThreadInput`) then **type** via `SendInput` |
+| Submit | separate `async_send_text("\r")` | separate Enter keystroke |
 
-**The load-bearing gotcha, documented independently in both backends:** sending
-`"/color x\r"` in one shot *types but does not submit* in Claude's TUI. You must send
-the text, then a **lone carriage return as a separate call**. Collapsing them back to
-one silently reintroduces the bug. See
+**The load-bearing gotcha (both backends):** a `/color <name>` command must be typed/sent and
+then submitted, and Claude's slash-command autocomplete can eat characters. iTerm2 sends the
+text then a lone CR. Windows has no per-pane send API, so it focuses the window and types the
+command one character at a time with a small delay, dismissing any open autocomplete with
+Escape first — so the space after `/color` isn't swallowed. See
 [ADR 0002](../decisions/0002-identity-injection.md).
 
-**The `colorDelay` path:** when `inject_color` is false, nothing is sent. WezTerm sleeps
-`color_delay` once, then injects into each pane. iTerm2 is smarter — after the same
-initial delay it also **waits for readiness per pane** (`_wait_ready` polls the pane's
-screen text for markers like `"shift+tab"`, `"auto-accept"`, timing out at 12 s) so
-`/color` lands in the prompt rather than a still-booting TUI.
+**Readiness.** Both wait before injecting: after the configured `color_delay`, iTerm2
+`_wait_ready` polls the pane's screen text for markers (`"shift+tab"`, `"auto-accept"`, …);
+the Windows backend polls the window title until it carries the pane name (Claude sets it via
+`-n`) so the command lands in a ready prompt, not a booting TUI.
 
 ## Gotchas worth remembering
 
-- `vertical=(direction == "right")` — a `"right"` split is a *vertical* divider; easy to
-  misread.
-- iTerm2 leaves real desktop gaps; WezTerm compacts — same abstract layout, different
-  physical result.
-- `retry=False` is mandatory — the iterm2 lib's retry loops forever on auth denial.
-- Split-plan logic exists in **three places** — canonically in `layouts.py`, imported by
-  `iterm2_backend`, but re-declared in `wezterm.py`. Keep them in sync until the backlog
-  item lands.
+- The model is uniform — real desktop gaps on both platforms, no compaction anywhere.
+- `wt` has **no per-pane text API** (unlike iTerm2's `send-text`); `/color` therefore needs
+  real window focus on Windows, which is the one thing the injection path must get right.
+- Set ctypes arg/restypes for any Win32 call taking an `HWND`, or 64-bit handles truncate.
+- Placement compensates for the DWM invisible border; skipping that leaves visible seams
+  between adjacent panes.

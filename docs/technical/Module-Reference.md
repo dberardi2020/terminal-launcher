@@ -37,8 +37,6 @@ underneath everything.
 - `resolve_workspace(config, ws)` — returns exactly `LAYOUT_CAPACITY[layout]` slots,
   each filled or `empty`. Applies **model precedence** slot → pane → global; expands
   `target`. Raises `CompositionError` on unknown layout or dangling pane ref.
-- `compact(slots)` — drops empties, re-indexes survivors `0..n-1`, returns
-  `(effective_layout, filled)` via `COUNT_LAYOUT`. Used by the WezTerm path.
 - `expand_target(raw)` — `expanduser` then `expandvars`, normalized.
 - `find_workspace(config, name)` — case-insensitive, trimmed lookup.
 
@@ -55,9 +53,10 @@ intended single source of truth for geometry.
 - **Constants:** `SPLIT_PLAN` (`split:[("right",0)]`, `combo:[("right",0),("bottom",1)]`,
   `quad:[("right",0),("bottom",0),("bottom",1)]`), `CAPACITY`, `FLIPPABLE={split,combo}`.
 
-*Imports:* none. *Consumed by:* `iterm2_backend` (imports `plan`/`FLIPPABLE`);
-`wezterm.py` currently **re-declares its own copy** (a known drift risk — see the
-[ADR 0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md) backlog).
+*Imports:* none. *Consumed by:* both backends import `FLIPPABLE` (for the flip mirror);
+`CAPACITY` derives from `SPLIT_PLAN` and is cross-checked against `config.LAYOUT_CAPACITY`
+in the tests. `plan()`/`SPLIT_PLAN` are no longer on the launch path — the native backends
+place by slot *rectangle*, not split direction.
 
 ---
 
@@ -66,29 +65,25 @@ intended single source of truth for geometry.
 ### `backend.py`
 **Owns** platform selection — a pure router, no terminal logic.
 
-- `_impl()` — `Darwin` **and** `iterm2_backend.available()` → `iterm2_backend`; else →
-  `wezterm` (this `and` is the macOS→WezTerm fallback). Re-evaluated on every call, no
+- `_impl()` — `iterm2_backend.available()` (macOS + iTerm2) → `iterm2_backend`;
+  `windows_terminal_backend.available()` (Windows + `wt`) → that; else `None` (no native
+  backend — `available()` is False, `launch()` raises). Re-evaluated on every call, no
   caching.
 - Re-exports the contract: `available()`, `describe(layout, slots, flip)`,
   `launch(layout, slots, inject_color, workspace_name, color_delay, flip)`, plus
   `name()` and `install_hint()`.
 
-### `iterm2_backend.py` · `wezterm.py`
-The two terminal backends behind the contract — full treatment in
-[Backends](Backends.md). In brief:
+### `iterm2_backend.py` · `windows_terminal_backend.py`
+The two native terminal backends behind the contract — full treatment in
+[Backends](Backends.md). Both realize the **same** model: one OS window per filled slot
+placed at its rect, with real desktop gaps for empties (no compaction). In brief:
 
-- **`iterm2_backend.py`** — async, drives the iTerm2 Python API on its own event loop;
-  full layout → one maximized split window, partial → one window per filled slot at its
-  rect with **real desktop gaps**. Auth via Automation permission.
-- **`wezterm.py`** — drives `wezterm cli` via subprocess; **compacts** empties away
-  (WezTerm can't hold a gap); maximizes the first pane via a bundled
-  `gui-startup` lua hook.
-
-### `assets/wezterm-maximize.lua`
-A minimal WezTerm config, applied only to windows this tool opens (via
-`WEZTERM_CONFIG_FILE`): a `gui-startup` hook that spawns the first slot's command and
-maximizes the window (there's no CLI geometry flag). Also sets large fallback
-`initial_cols/rows`.
+- **`iterm2_backend.py`** — async, drives the iTerm2 Python API on its own event loop; a
+  window per slot, `async_set_frame` to the Cocoa rect. Auth via Automation permission.
+- **`windows_terminal_backend.py`** — pure `ctypes`; spawns `wt -w new` per slot, finds the
+  window by class-name diff, and `SetWindowPos`es it to the Win32 rect (DPI + DWM
+  compensation). `/color` via focus + `SendInput` typing (no `send-text` equivalent). No
+  permission prompt.
 
 ---
 
@@ -116,7 +111,7 @@ models are left off (the "Default" chip).
 
 - `run(path)` — lazily imports `webview`, calls `diag.setup()` and
   `_inherit_login_path()` (merges the login-shell PATH so a Dock-launched `.app` can
-  find `wezterm`/`claude`/`iterm2`), reads `web/builder.html` off disk, and
+  find `claude`/`iterm2`; a no-op on Windows), reads `web/builder.html` off disk, and
   `create_window(..., js_api=api, maximized=True)`.
 - `class Api` — the bridge, exposed as `window.pywebview.api.*`. Every public method is
   wrapped in an exception tracer (`gui.py:71`) because pywebview otherwise swallows

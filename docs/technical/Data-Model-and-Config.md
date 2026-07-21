@@ -97,19 +97,14 @@ slot override   →   pane default   →   global settings.defaultModel
 `{ "pane": "code", "model": "haiku" }` runs haiku; `{ "pane": "code" }` runs the pane's
 own `model` (`opus`); a pane with no `model` runs `settings.defaultModel`.
 
-## Compaction: the second phase
+## Capacity-shaped slots, real gaps
 
-`resolve_workspace` yields a **capacity-shaped** list (with empties marked).
-`model.compact(slots)` is the optional second phase that produces a **density-shaped**
-list — it drops empties, re-indexes survivors `0..n-1`, and returns
-`(effective_layout, filled)` where the layout is the tightest fit for the filled count
-(`COUNT_LAYOUT`: 1→single, 2→split, 3→combo, 4→quad).
-
-Two phases, two consumers:
-
-- **WezTerm** runs `compact` (it can't render a gap).
-- **iTerm2** does *not* — it keeps the capacity-shaped slots and places each filled one
-  at its true rect, leaving empties as desktop gaps.
+`resolve_workspace` yields a **capacity-shaped** list — always `LAYOUT_CAPACITY[layout]`
+slots, each filled or marked `empty`. Both backends consume it **as-is**: each filled slot
+becomes its own window at its slot rectangle, and each empty slot is left as a real desktop
+gap. There is no compaction phase — the tool no longer reshapes a partial layout to a
+tighter one (that was the removed WezTerm path; see
+[ADR 0008](../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md)).
 
 ## Two capacity tables — kept in lockstep by a test
 

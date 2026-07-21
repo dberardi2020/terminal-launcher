@@ -27,9 +27,9 @@ strong{font-weight:650}
 <h1>Terminal Launcher — Technical docs</h1>
 <p>Documentation for <strong>developers</strong> working on the code. Assumes you've skimmed the <a href="../product/README.md">Product docs</a> for the vocabulary (Pane · Layout · Workspace).</p>
 <h2>Start here</h2>
-<table><thead><tr><th>Doc</th><th>Read it for</th></tr></thead><tbody><tr><td><a href="Architecture.md">Architecture</a></td><td>The layered design and the end-to-end flow from <code>launch Docs</code> to tiled windows.</td></tr><tr><td><a href="Tech-Stack.md">Tech Stack</a></td><td>The dependencies — stdlib core, pywebview, iterm2 API, wezterm cli, py2app, pytest — and <em>why</em> each.</td></tr><tr><td><a href="Module-Reference.md">Module Reference</a></td><td>Every module: responsibility, key functions, cross-calls.</td></tr><tr><td><a href="Backends.md">Backends</a></td><td>The terminal-backend abstraction — the heart of the system.</td></tr><tr><td><a href="Data-Model-and-Config.md">Data Model &amp; Config</a></td><td>The <code>workspaces.json</code> schema, resolution order, and model precedence.</td></tr><tr><td><a href="Build-Packaging-Testing.md">Build, Packaging &amp; Testing</a></td><td>The py2app <code>.app</code> bundle, asset loading, entitlements, and the test suite.</td></tr></tbody></table>
+<table><thead><tr><th>Doc</th><th>Read it for</th></tr></thead><tbody><tr><td><a href="Architecture.md">Architecture</a></td><td>The layered design and the end-to-end flow from <code>launch Docs</code> to tiled windows.</td></tr><tr><td><a href="Tech-Stack.md">Tech Stack</a></td><td>The dependencies — stdlib core, pywebview, iterm2 API, <code>wt</code> + Win32, py2app/PyInstaller, pytest — and <em>why</em> each.</td></tr><tr><td><a href="Module-Reference.md">Module Reference</a></td><td>Every module: responsibility, key functions, cross-calls.</td></tr><tr><td><a href="Backends.md">Backends</a></td><td>The terminal-backend abstraction — the heart of the system.</td></tr><tr><td><a href="Data-Model-and-Config.md">Data Model &amp; Config</a></td><td>The <code>workspaces.json</code> schema, resolution order, and model precedence.</td></tr><tr><td><a href="Build-Packaging-Testing.md">Build, Packaging &amp; Testing</a></td><td>The py2app <code>.app</code> and PyInstaller <code>.exe</code> bundles, asset loading, entitlements, and the test suite.</td></tr></tbody></table>
 <h2>The shape, at a glance</h2>
-<p>~1,870 lines of Python across 11 modules, plus one self-contained HTML/JS GUI file. Layered: <strong>front-ends</strong> → <strong>core</strong> → <strong>backend seam</strong> → <strong>terminal backends</strong>.</p>
+<p>~2,000 lines of Python across 11 modules, plus one self-contained HTML/JS GUI file. Layered: <strong>front-ends</strong> → <strong>core</strong> → <strong>backend seam</strong> → <strong>terminal backends</strong>.</p>
 <pre><code>bin/terminal-launcher          # executable entry point (symlink onto PATH)
 app_main.py                    # .app / Dock entry → straight to GUI
 terminal_launcher/
@@ -38,18 +38,17 @@ terminal_launcher/
   gui.py                       # visual composer (pywebview) + JS↔Python bridge
   web/builder.html             # the entire GUI front-end (inline HTML/CSS/JS)
   config.py                    # config load/save/defaults, color map
-  model.py                     # workspace → concrete ResolvedSlots; compaction
-  layouts.py                   # split-plans (terminal-agnostic; unit-tested)
+  model.py                     # workspace → concrete ResolvedSlots
+  layouts.py                   # split-plans + capacity (terminal-agnostic; unit-tested)
   backend.py                   # selects the terminal backend per platform
   iterm2_backend.py            # macOS backend — iTerm2 Python API
-  wezterm.py                   # non-macOS backend — `wezterm cli`
-  assets/wezterm-maximize.lua  # WezTerm gui-startup maximize hook
+  windows_terminal_backend.py  # Windows backend — `wt` + Win32 (ctypes)
   diag.py                      # rotating log shared by CLI + GUI + backends
 tests/                         # pytest: layouts, model, config
-packaging/                     # py2app macOS .app build
+packaging/                     # py2app macOS .app + PyInstaller Windows .exe
 docs/                          # this suite + concept.md + decisions/ (ADRs)</code></pre>
 <h2>The two invariants worth knowing first</h2>
-<ul><li><strong>The config is a dumb JSON dict.</strong> There's no ORM or model object for panes and workspaces — every mutation in both front-ends is "change the plain dict, then <code>config.save(path, config)</code>". See <a href="Data-Model-and-Config.md">Data Model &amp; Config</a>.</li><li><strong>Neither front-end knows which terminal it's driving.</strong> They call <code>backend.launch(...)</code>; the platform split (iTerm2 vs WezTerm) lives entirely behind that seam. See <a href="Backends.md">Backends</a>.</li></ul>
+<ul><li><strong>The config is a dumb JSON dict.</strong> There's no ORM or model object for panes and workspaces — every mutation in both front-ends is "change the plain dict, then <code>config.save(path, config)</code>". See <a href="Data-Model-and-Config.md">Data Model &amp; Config</a>.</li><li><strong>Neither front-end knows which terminal it's driving.</strong> They call <code>backend.launch(...)</code>; the platform split (iTerm2 vs Windows Terminal) lives entirely behind that seam. See <a href="Backends.md">Backends</a>.</li></ul>
 <h2>Deeper references</h2>
-<ul><li><a href="../decisions/"><code>../decisions/</code></a> — the ADRs: <em>why</em> each choice was made (start with <a href="../decisions/0001-terminal-layer-and-core.md">0001</a> and <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">0007</a>).</li><li><a href="../concept.md"><code>../concept.md</code></a> — the as-built product concept.</li></ul>
+<ul><li><a href="../decisions/"><code>../decisions/</code></a> — the ADRs: <em>why</em> each choice was made (start with <a href="../decisions/0001-terminal-layer-and-core.md">0001</a> and <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">0007</a>, and <a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md">0008</a>).</li><li><a href="../concept.md"><code>../concept.md</code></a> — the as-built product concept.</li></ul>
 </main></body></html>

@@ -21,9 +21,9 @@ Everything else is the **standard library**: `argparse`, `json`, `pathlib`,
 `subprocess`, `asyncio`, `ctypes`, `logging`, `shutil`, `shlex`, `platform`,
 `functools`.
 
-**The CLI and the WezTerm backend are stdlib-only** — `iterm2` and `pywebview` are both
-imported *lazily inside functions*, so a machine that only uses the CLI + WezTerm never
-needs them installed.
+**The CLI and the Windows Terminal backend are stdlib-only** — the Windows backend is pure
+`ctypes`, and `iterm2`/`pywebview` are imported *lazily inside functions*, so a machine that
+only uses the CLI + `wt` never needs the third-party packages.
 
 ## What each third-party piece does — and why it
 
@@ -53,15 +53,16 @@ AppleScript Apple Event obtains the API cookie) — lighter than the Accessibili
 an arbitrary-window placer would need. See
 [ADR 0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md).
 
-### `wezterm cli` — the non-macOS terminal backend
+### Windows Terminal (`wt`) — the Windows terminal backend
 
-Not a Python dependency — an **external binary** driven via `subprocess`. `wezterm.py`
-shells out to `wezterm cli spawn` / `split-pane` / `set-tab-title` / `send-text`.
+Not a Python dependency — an **external app** (`wt.exe`) driven via `subprocess`, plus the
+Win32 API via `ctypes`. `windows_terminal_backend.py` spawns `wt -w new` per slot and
+positions each window with `SetWindowPos`.
 
-*Why:* `wezterm cli` returns pane-ids, so scripted tiling is exact, and
-`send-text --pane-id` targets a pane without focus or Accessibility. It's identical on
-macOS and Windows, giving cross-platform parity by construction. See
-[ADR 0001](../decisions/0001-terminal-layer-and-core.md).
+*Why:* it's the native Windows terminal (ships with Windows 11) and gives real,
+separately-placeable OS windows — the same one-window-per-pane model iTerm2 gives on macOS.
+It has no per-pane text API, so `/color` is injected by focusing the window and typing. See
+[ADR 0008](../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md).
 
 ### Claude Code (`claude`) — the payload
 
@@ -71,8 +72,9 @@ Not a dependency of the tool, but what every filled pane runs:
 
 ## Build & test tooling
 
-- **py2app** — builds the macOS Dock `.app` (`setup.py`). Dev/packaging only. See
-  [Build, Packaging & Testing](Build-Packaging-Testing.md).
+- **py2app** — builds the macOS Dock `.app` (`setup.py`). Dev/packaging only.
+- **PyInstaller** — builds the Windows `.exe` (`packaging/windows/`). Dev/packaging only.
+  See [Build, Packaging & Testing](Build-Packaging-Testing.md).
 - **pytest** — unit tests for the pure core (`layouts`, `model`, `config`). No terminal
   or GUI is exercised in tests.
 - **docs render** — `docs/render.py` (stdlib-only) renders the Markdown docs to their
@@ -82,8 +84,8 @@ Not a dependency of the tool, but what every filled pane runs:
 
 The stack stays swappable because every external piece sits behind a seam:
 
-- `iterm2` and `wezterm` are reached **only** through `backend.py`'s three-function
-  contract — the core and front-ends import neither.
+- `iterm2` and the Windows Terminal backend are reached **only** through `backend.py`'s
+  three-function contract — the core and front-ends import neither.
 - `pywebview` is imported **only** inside `gui.py` (and lazily), so the CLI never loads
   it.
 - `iterm2` is imported lazily inside `iterm2_backend` functions — which is also why

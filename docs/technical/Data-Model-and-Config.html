@@ -73,10 +73,8 @@ strong{font-weight:650}
 <h3>Model precedence</h3>
 <pre><code>slot override   →   pane default   →   global settings.defaultModel</code></pre>
 <p><code>{ "pane": "code", "model": "haiku" }</code> runs haiku; <code>{ "pane": "code" }</code> runs the pane's own <code>model</code> (<code>opus</code>); a pane with no <code>model</code> runs <code>settings.defaultModel</code>.</p>
-<h2>Compaction: the second phase</h2>
-<p><code>resolve_workspace</code> yields a <strong>capacity-shaped</strong> list (with empties marked). <code>model.compact(slots)</code> is the optional second phase that produces a <strong>density-shaped</strong> list — it drops empties, re-indexes survivors <code>0..n-1</code>, and returns <code>(effective_layout, filled)</code> where the layout is the tightest fit for the filled count (<code>COUNT_LAYOUT</code>: 1→single, 2→split, 3→combo, 4→quad).</p>
-<p>Two phases, two consumers:</p>
-<ul><li><strong>WezTerm</strong> runs <code>compact</code> (it can't render a gap).</li><li><strong>iTerm2</strong> does <em>not</em> — it keeps the capacity-shaped slots and places each filled one at its true rect, leaving empties as desktop gaps.</li></ul>
+<h2>Capacity-shaped slots, real gaps</h2>
+<p><code>resolve_workspace</code> yields a <strong>capacity-shaped</strong> list — always <code>LAYOUT_CAPACITY[layout]</code> slots, each filled or marked <code>empty</code>. Both backends consume it <strong>as-is</strong>: each filled slot becomes its own window at its slot rectangle, and each empty slot is left as a real desktop gap. There is no compaction phase — the tool no longer reshapes a partial layout to a tighter one (that was the removed WezTerm path; see <a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md">ADR 0008</a>).</p>
 <h2>Two capacity tables — kept in lockstep by a test</h2>
 <p>Capacity is declared twice: <code>config.LAYOUT_CAPACITY</code> and <code>layouts.CAPACITY</code> (derived from <code>SPLIT_PLAN</code> lengths). They must never drift — <code>tests/test_config.py</code> asserts <code>LAYOUT_CAPACITY == CAPACITY</code> exactly to guard it. See <a href="Build-Packaging-Testing.md">Build, Packaging &amp; Testing</a>.</p>
 </main></body></html>
