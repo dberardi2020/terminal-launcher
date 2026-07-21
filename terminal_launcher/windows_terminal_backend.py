@@ -414,10 +414,15 @@ def _claude() -> str:
 def _wt_command(slot: ResolvedSlot) -> list[str]:
     """`wt -w new` command that opens ONE new window running this slot's claude.
 
-    `-w new` forces a separate window (not a tab). `--title`/`--tabColor` tag the
-    tab; everything after the executable is passed to claude verbatim."""
+    `-w new` forces a separate window (not a tab); `--title` tags it; everything
+    after the executable is passed to claude verbatim.
+
+    No `--tabColor`: tinting the wt tab from the pane's hex didn't read well against
+    Windows Terminal's own theming, so it's dropped for now (revisit with a palette
+    tuned for wt). The pane's colour still lands where it matters — Claude's prompt
+    bar, via `/color`."""
     return ["wt", "-w", "new", "-d", slot.target,
-            "--title", slot.name, "--tabColor", slot.color_hex,
+            "--title", slot.name,
             _claude(), "-n", slot.name, "--model", slot.model]
 
 

@@ -98,9 +98,11 @@ one tab / one session whose name is a bare login shell (`_SHELL_NAMES = {-zsh, z
 
 ## `windows_terminal_backend.py` — `wt` + Win32 (ctypes)
 
-- **Spawn.** One window per filled slot: `wt -w new -d <dir> --title <name> --tabColor <hex>
+- **Spawn.** One window per filled slot: `wt -w new -d <dir> --title <name>
   claude -n <name> --model <model>`. `-w new` forces a separate window (not a tab);
-  everything after the executable is passed to `claude` verbatim.
+  everything after the executable is passed to `claude` verbatim. (`--tabColor` was
+  tried and dropped — the pane hex didn't read well against Windows Terminal's own
+  theming; the pane's colour still lands on Claude's prompt bar via `/color`.)
 - **Discover.** `wt` returns immediately after handing off to a WindowsTerminal host process
   (new or existing), so the new window is found by **diffing the set of visible
   `CASCADIA_HOSTING_WINDOW_CLASS` windows** before/after the spawn — not by PID.
@@ -120,7 +122,7 @@ prompt tint:
 
 | | iTerm2 | Windows Terminal |
 |---|---|---|
-| Name/title | `session.async_set_name(name)` | `wt --title <name>` (+ `--tabColor <hex>`) |
+| Name/title | `session.async_set_name(name)` | `wt --title <name>` |
 | `/color` delivery | `async_send_text` — **no focus needed** | **focus the window** (`AttachThreadInput`) then **paste** via the clipboard (Ctrl+V) |
 | Submit | separate `async_send_text("\r")` | separate Enter keystroke |
 

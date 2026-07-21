@@ -99,7 +99,7 @@ py -c "import shutil; print(shutil.which('wt'), shutil.which('claude'))"</code><
     <li><label><input type="checkbox"><span><span class="lead"><span class="who a">🤖</span> Exactly one <code>wt</code> window opens</span></span></label></li>
     <li><label><input type="checkbox"><span><span class="lead"><span class="who a">🤖</span> Visible frame == work area (no gap at any edge)</span></span></label></li>
     <li><label><input type="checkbox"><span><span class="lead"><span class="who b">🤝</span> Claude runs in the pane's target dir (set via <code>-d</code>; glance to confirm)</span></span></label></li>
-    <li><label><input type="checkbox"><span><span class="lead"><span class="who b">🤝</span> Tab title = pane name <span class="who a" style="margin-left:4px">🤖 title</span> <span class="who h" style="margin-left:2px">👁 color</span></span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead"><span class="who a">🤖</span> Tab title = pane name (via <code>--title</code>)</span><span class="exp">tab <em>tinting</em> (<code>--tabColor</code>) was dropped — it didn't read well against wt's own theming; colour lands on Claude's prompt bar instead</span></span></label></li>
   </ul>
 </section>
 
@@ -110,7 +110,7 @@ py -c "import shutil; print(shutil.which('wt'), shutil.which('claude'))"</code><
   <ul>
     <li><label><input type="checkbox"><span><span class="lead"><span class="who a">🤖</span> Two windows at the left &amp; right half rects</span></span></label></li>
     <li><label><input type="checkbox"><span><span class="lead"><span class="who a">🤖</span> Shared edge abuts with <b>no gap</b> (visible frames measured)</span></span></label></li>
-    <li><label><input type="checkbox"><span><span class="lead"><span class="who b">🤝</span> Each Claude in its dir; titles + colors correct</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead"><span class="who b">🤝</span> Each Claude in its dir; titles correct</span></span></label></li>
   </ul>
 </section>
 
