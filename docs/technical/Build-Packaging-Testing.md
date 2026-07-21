@@ -85,9 +85,11 @@ off disk via `__file__`). `build/` and `dist/` are git-ignored throwaways.
 
 **No bundle is needed to run it.** The CLI and the Windows Terminal backend are
 stdlib-only, so `py -m terminal_launcher launch <ws>` works with nothing installed. For a
-double-clickable GUI *without* building an `.exe`, `packaging/windows/terminal-launcher.cmd`
-runs `pythonw -m terminal_launcher gui` (no console window) — pin it to Start or make a
-shortcut; installing `pywebview` is the only requirement for the GUI.
+double-clickable GUI *without* building an `.exe`, run
+`packaging/windows/install-shortcut.ps1` — it drops a **Start Menu** entry (icon and all)
+running `pythonw -m terminal_launcher gui`, no console window; `terminal-launcher.cmd`
+beside it does the same from a double-click. Installing `pywebview` is the only
+requirement for the GUI.
 
 *Icon:* PyInstaller wants a Windows `.ico`; the spec uses `packaging/windows/app.ico` if
 present and omits the icon otherwise (generate one from `packaging/icon.png` when wanted).

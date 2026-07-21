@@ -55,9 +55,23 @@ To run the GUI **without** building an `.exe`, double-click
 window); that only needs Python + `pywebview`. The CLI itself
 (`py -m terminal_launcher …`) needs nothing beyond the standard library.
 
-**Icon:** PyInstaller wants a Windows `.ico`. The spec uses `windows/app.ico` if present,
-otherwise it builds without an icon. Generate one from `icon.png`, e.g. with ImageMagick:
+### Start Menu shortcut (no build at all)
+
+The lightest way to get a launchable entry on Windows — a Start Menu shortcut that runs
+the composer with `pythonw` (no console window) straight from this checkout:
 
 ```powershell
-magick packaging\icon.png -define icon:auto-resize=256,128,64,48,32,16 packaging\windows\app.ico
+powershell -ExecutionPolicy Bypass -File packaging\windows\install-shortcut.ps1
+powershell -ExecutionPolicy Bypass -File packaging\windows\install-shortcut.ps1 -Uninstall
+```
+
+It resolves `pythonw.exe` via the `py` launcher, sets the working directory to the
+checkout (so `-m terminal_launcher` resolves), and uses `windows/app.ico`. Needs only
+Python + `pywebview` — no PyInstaller. Verified on Windows 11.
+
+**Icon:** `windows/app.ico` is committed (multi-size, 16–256 px) and used by both the
+shortcut and the PyInstaller spec. Regenerate it from the master `icon.png` with Pillow:
+
+```powershell
+py -c "from PIL import Image; im=Image.open('packaging/icon.png').convert('RGBA'); im.save('packaging/windows/app.ico', sizes=[(s,s) for s in (16,24,32,48,64,128,256)])"
 ```
