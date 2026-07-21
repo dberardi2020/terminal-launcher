@@ -138,7 +138,7 @@ def cmd_preview(config: dict, args) -> int:
     print(bold(f"{ws['name']}  ") + dim(f"({ws.get('layout')}{flip_note})"))
     for s in slots:
         if s.empty:
-            print(f"  slot {s.index + 1}: {dim('(empty — dropped at launch)')}")
+            print(f"  slot {s.index + 1}: {dim('(empty — desktop gap)')}")
         else:
             print(f"  slot {s.index + 1}: {swatch(s.color)} {bold(s.name)}  "
                   f"{dim(s.target)}  {yellow(s.model)}")
@@ -161,9 +161,8 @@ def cmd_launch(config: dict, args) -> int:
     if not any(not s.empty for s in slots):
         print(red("Nothing to launch — every slot is empty."))
         return 1
-    # Pass the original layout + slots (empties included). Backends handle gaps:
-    # iTerm2 places filled slots at their real positions (leaving desktop gaps);
-    # WezTerm compacts internally.
+    # Pass the original layout + slots (empties included). The backend places each
+    # filled slot at its real position, leaving empty slots as desktop gaps.
     layout = ws.get("layout", "single")
     inject = args.inject_color or config["settings"].get("injectColor", False)
     delay = config["settings"].get("colorDelay", 1.5)

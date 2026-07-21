@@ -167,7 +167,7 @@
   <div class="top">
     <h1>Terminal Launcher</h1>
     <span class="tagline">Compose a layout, drop a pane in each slot, and launch.</span>
-    <span class="badge" id="wtBadge" hidden>WezTerm not found</span>
+    <span class="badge" id="termBadge" hidden>No terminal backend</span>
   </div>
 
   <div class="lbl">Workspaces <span>Launch one directly, or click a card to load it into the composer.</span></div>
@@ -235,7 +235,7 @@ window.addEventListener('unhandledrejection', e=>{
   _e(...a);
 };})();
 
-let STATE = {panes:{}, models:[], colors:[], workspaces:[], settings:{}, wezterm:true, defaultModel:'opus'};
+let STATE = {panes:{}, models:[], colors:[], workspaces:[], settings:{}, terminal:true, defaultModel:'opus'};
 let comp = {layout:'split', slots:[null,null], loaded:null, dirty:false, flip:false};
 let sideMode = 'hint';           // 'hint' | 'slot' | 'panes' | 'paneform'
 let editing = null;              // slot index for 'slot' mode
@@ -327,9 +327,9 @@ function render(){
   $('updateBtn').disabled = !comp.loaded || !comp.dirty;
   $('revertBtn').disabled = !comp.loaded || !comp.dirty;
   const filled = comp.slots.some(Boolean);
-  $('launchBtn').disabled = !filled || !STATE.wezterm;
+  $('launchBtn').disabled = !filled || !STATE.terminal;
   $('saveBtn').disabled = !filled;
-  $('wtBadge').hidden = STATE.wezterm;
+  $('termBadge').hidden = STATE.terminal;
   renderGallery();
 }
 
@@ -570,7 +570,7 @@ $('saveBtn').onclick = async ()=>{
 
 /* ---------- launch (real) ---------- */
 async function launch(src){
-  if(!STATE.wezterm) return toast('WezTerm not found on PATH', null, true);
+  if(!STATE.terminal) return toast('No terminal backend on this platform', null, true);
   const closeAfter = $('fleeting').checked;
   const plan = src.slots.map((s,i)=>s
     ? `  ${slotName(src.layout,i,src.flip)}: ${paneName(s.pane)}  →  ${paneTarget(s.pane)}  (${modelLabel(s.model)})`

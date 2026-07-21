@@ -1,12 +1,11 @@
-"""Unit tests for composition model: resolve, compact, target expansion, lookup."""
+"""Unit tests for composition model: resolve, target expansion, lookup."""
 import os
+from pathlib import Path
 
 import pytest
 
 from terminal_launcher.model import (
     CompositionError,
-    ResolvedSlot,
-    compact,
     expand_target,
     find_workspace,
     resolve_workspace,
@@ -22,36 +21,6 @@ CFG = {
 }
 
 
-# ---- compact ----------------------------------------------------------------
-
-def test_compact_drops_empties_and_reindexes():
-    slots = [
-        ResolvedSlot(index=0, empty=False, name="A"),
-        ResolvedSlot(index=1, empty=True),
-        ResolvedSlot(index=2, empty=False, name="B"),
-    ]
-    layout, filled = compact(slots)
-    assert layout == "split"                     # 2 filled -> split
-    assert [s.name for s in filled] == ["A", "B"]
-    assert [s.index for s in filled] == [0, 1]   # re-indexed contiguously
-
-
-def test_compact_full_quad_stays_quad():
-    slots = [ResolvedSlot(index=i, empty=False, name=str(i)) for i in range(4)]
-    assert compact(slots)[0] == "quad"
-
-
-def test_compact_three_filled_is_combo():
-    slots = [ResolvedSlot(index=i, empty=False, name=str(i)) for i in range(3)]
-    assert compact(slots)[0] == "combo"
-
-
-def test_compact_all_empty_yields_no_slots():
-    layout, filled = compact([ResolvedSlot(index=0, empty=True)])
-    assert filled == []
-    assert layout == "single"
-
-
 # ---- expand_target ----------------------------------------------------------
 
 def test_expand_target_expands_home():
@@ -60,7 +29,7 @@ def test_expand_target_expands_home():
 
 def test_expand_target_expands_env(monkeypatch):
     monkeypatch.setenv("TL_TESTVAR", "/tmp/tl-test")
-    assert expand_target("$TL_TESTVAR/x").endswith("/tmp/tl-test/x")
+    assert Path(expand_target("$TL_TESTVAR/x")) == Path("/tmp/tl-test/x")
 
 
 # ---- find_workspace ---------------------------------------------------------
@@ -81,7 +50,7 @@ def test_resolve_fills_and_marks_empty_slots():
     assert not slots[0].empty
     assert slots[0].name == "Code"
     assert slots[0].color == "blue"
-    assert slots[0].target == os.path.expanduser("~/Code")
+    assert slots[0].target == str(Path(os.path.expanduser("~/Code")))
     assert slots[1].empty
 
 

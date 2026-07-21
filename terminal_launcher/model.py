@@ -75,26 +75,6 @@ def resolve_workspace(config: dict, workspace: dict) -> list[ResolvedSlot]:
     return resolved
 
 
-# A filled-slot count maps to the tightest layout that holds exactly that many
-# panes. Partial compositions launch *compacted* to this: empty slots are dropped
-# rather than rendered as shells. WezTerm cannot leave a hole — every pane region
-# runs a program — so the filled panes expand to fill the window instead. Only
-# genuinely mixed (non-Claude) workspaces need the OS-window tiler; see ADR 0004.
-COUNT_LAYOUT = {1: "single", 2: "split", 3: "combo", 4: "quad"}
-
-
-def compact(slots: list[ResolvedSlot]) -> tuple[str, list[ResolvedSlot]]:
-    """Drop empty slots; return (effective_layout, filled_slots).
-
-    Re-indexes the kept slots 0..n-1 so the launcher's split plan lines up. A
-    *full* composition is unchanged (n == capacity resolves back to its own
-    layout — a full quad stays quad, a full combo stays combo)."""
-    filled = [s for s in slots if not s.empty]
-    for i, s in enumerate(filled):
-        s.index = i
-    return COUNT_LAYOUT.get(len(filled), "single"), filled
-
-
 def find_workspace(config: dict, name: str) -> dict | None:
     lname = name.strip().lower()
     for ws in config.get("workspaces", []):

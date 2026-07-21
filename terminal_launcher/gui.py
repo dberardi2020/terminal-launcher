@@ -1,7 +1,7 @@
 """The visual composer — a fleeting native window (pywebview) over the shared core.
 
 No web server: pywebview renders local HTML in the OS's native WebView and bridges
-button clicks straight into the same core the CLI uses (`config` + `wezterm`). The
+button clicks straight into the same core the CLI uses (`config` + `backend`). The
 window IS the app — close it and the process exits. Launch quits the window behind
 you: the fleeting open → launch → gone behavior.
 
@@ -36,7 +36,7 @@ def _inherit_login_path() -> None:
     """Give the process the login shell's PATH.
 
     Apps launched from the Dock/Finder inherit a minimal PATH (no /opt/homebrew/bin),
-    so `wezterm`/`claude` aren't found. Merge in the login shell's PATH plus the usual
+    so `claude` isn't found. Merge in the login shell's PATH plus the usual
     Homebrew/user bin dirs so the bundled .app behaves like a terminal launch. Safe to
     call when already run from a terminal — the merge is idempotent.
     """
@@ -175,7 +175,7 @@ class Api:
             "colors": [{"name": n, "hex": h} for n, h in COLORS.items()],
             "workspaces": workspaces,
             "settings": settings,
-            "wezterm": backend.available(),   # JS gate key (terminal availability)
+            "terminal": backend.available(),   # JS gate key (terminal availability)
             "terminalName": backend.name(),
             "defaultModel": default_model,
         }
@@ -334,7 +334,7 @@ class Api:
         """Launch a composition {name?, layout, slots} — saved or ad-hoc.
 
         Validation is synchronous (so bad input returns an error to JS instantly),
-        but the actual WezTerm spawn — which sleeps for color-injection timing —
+        but the actual backend spawn — which sleeps for color-injection timing —
         runs on a BACKGROUND thread. Doing it on the GUI thread would beachball the
         window, and calling `destroy()` from inside a JS-API call deadlocks; a
         worker thread avoids both and closes the window cleanly when done.
@@ -354,8 +354,7 @@ class Api:
             return {"ok": False, "error": "Nothing to launch — every slot is empty."}
 
         # Keep the original layout + slots (empties included). The backend places
-        # filled slots at their real positions — iTerm2 leaves empty slots as
-        # desktop gaps; WezTerm compacts internally.
+        # each filled slot at its real position, leaving empty slots as desktop gaps.
         settings = config["settings"]
         ws_name = "tl-" + _slugify(ws["name"])
 
@@ -378,7 +377,7 @@ class Api:
             self._log.info("launch ok: ws=%s", ws_name)
             if close_after:
                 # Fleeting: the launcher goes away once the launch is fully handed
-                # off. The WezTerm GUI + Claude sessions are independent processes
+                # off. The terminal GUI + Claude sessions are independent processes
                 # already spawned above, so they survive us exiting. os._exit is
                 # deliberate — pywebview's window.destroy() is unreliable from a
                 # non-managed thread in this build, and the process IS the app.
