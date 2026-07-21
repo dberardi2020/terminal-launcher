@@ -24,7 +24,7 @@ fi
 
 echo "==> Building $APP with py2app"
 rm -rf build dist
-"$PY" setup.py py2app >/dev/null
+"$PY" setup_py2app.py py2app >/dev/null
 
 echo "==> Installing to $DEST"
 rm -rf "$DEST"

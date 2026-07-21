@@ -57,19 +57,25 @@ add, edit, recolor, and retarget them without leaving the window.
 
 ## Install
 
-No build step. On macOS/Linux, symlink the entry point onto your `PATH`:
+**Recommended — install the command with [pipx](https://pipx.pypa.io):**
+
+```sh
+pipx install git+https://github.com/dberardi2020/terminal-launcher.git
+```
+
+That puts a `terminal-launcher` command on your `PATH` in its own isolated environment —
+same on macOS, Linux, and Windows.
+
+**Or run it straight from a checkout, no install at all:**
 
 ```sh
 git clone https://github.com/dberardi2020/terminal-launcher.git
 cd terminal-launcher
-ln -s "$(pwd)/bin/terminal-launcher" ~/.local/bin/terminal-launcher
+python3 -m terminal_launcher --help      # `py -m terminal_launcher` on Windows
 ```
 
-On Windows, run it as a module (`py -m terminal_launcher …`) from the repo, or use the
-`terminal-launcher.cmd` shim in [`packaging/windows/`](packaging/windows/).
-
-Then seed a config and compose your first workspace (substitute `py -m terminal_launcher`
-on Windows):
+Then seed a config and compose your first workspace (substitute `python3 -m
+terminal_launcher` if you're running from a checkout):
 
 ```sh
 terminal-launcher init        # seed ~/.config/terminal-launcher/workspaces.json
@@ -94,14 +100,15 @@ the install for you:
 Install Terminal Launcher for my platform from
 https://github.com/dberardi2020/terminal-launcher
 
-- Clone the repo (or use it in place if it's already on disk).
-- macOS/Linux: symlink the entry point onto my PATH, e.g.
-  `ln -s "$(pwd)/bin/terminal-launcher" ~/.local/bin/terminal-launcher`.
-- Windows: it runs as a module — `py -m terminal_launcher`.
+- Preferred: `pipx install git+https://github.com/dberardi2020/terminal-launcher.git`
+  — that gives me a `terminal-launcher` command on my PATH. If pipx isn't available,
+  clone the repo and use `python -m terminal_launcher` from the checkout instead.
 - Then run `terminal-launcher init` to seed my config, and walk me through
   `terminal-launcher new` to compose my first workspace.
-- Optional: run `./integrations/claude-code/install.sh` to add the `/restore` Claude Code
-  command that re-applies a pane's colour + name after `/clear`.
+- Optional (needs a checkout): add the `/restore` Claude Code command, which re-applies
+  a pane's colour + name after `/clear` —
+  `./integrations/claude-code/install.sh` on macOS/Linux, or
+  `powershell -ExecutionPolicy Bypass -File integrations\claude-code\install.ps1` on Windows.
 
 It needs Python 3.10+, Claude Code (`claude`) on my PATH, and a terminal backend:
 iTerm2 on macOS (`brew install --cask iterm2`) or Windows Terminal on Windows

@@ -163,9 +163,11 @@ window.pywebview.api` is the single bridge accessor. JS errors (`window.onerror`
 
 | File | Door | Does |
 |---|---|---|
-| `bin/terminal-launcher` | shell | Executable symlinked onto `PATH`. |
-| `__main__.py` | CLI | `python -m terminal_launcher` → `cli.main()`. |
+| `pyproject.toml` | install | `[project.scripts] terminal-launcher = "terminal_launcher.cli:main"` — the console script `pip`/`pipx` puts on `PATH`. The packaging source of truth (deps, package data). |
+| `__main__.py` | CLI | `python -m terminal_launcher` → `cli.main()`; the zero-install path from a checkout. |
+| `bin/terminal-launcher` | shell | Legacy entry script (adds the repo to `sys.path`, then `cli.main()`). Still used by the `/restore` installers; slated for removal once they move to the console script. |
 | `app_main.py` | `.app` | The py2app entry — `run()` straight into the GUI, bypassing argparse. |
+| `setup_py2app.py` | `.app` build | py2app-only build config (`python setup_py2app.py py2app`). Kept separate from `pyproject.toml` so a `pip install` never triggers a py2app build. |
 | `__init__.py` | — | Package docstring + `__version__ = "1.4.0"`. |
 
 ---

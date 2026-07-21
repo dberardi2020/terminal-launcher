@@ -26,7 +26,7 @@ the app behind you.
 ### Manual build (if you don't want the script)
 
 ```sh
-python setup.py py2app                         # → dist/Terminal Launcher.app
+python setup_py2app.py py2app                         # → dist/Terminal Launcher.app
 cp -R "dist/Terminal Launcher.app" /Applications/
 rm -rf build dist                              # avoid the Spotlight duplicate
 ```
@@ -37,7 +37,7 @@ kept in the (synced) project folder.
 ## Icon
 
 `icon.png` (1024²) is the master; `icon.icns` is the bundled icon (referenced by
-`setup.py`). Regenerate the master with `python packaging/make-icon.py`, then rebuild
+`setup_py2app.py`). Regenerate the master with `python packaging/make-icon.py`, then rebuild
 `icon.icns`:
 
 ```sh

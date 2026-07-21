@@ -1,26 +1,48 @@
 # Build, Packaging & Testing
 
-## Running from source
+## Two packaging paths (and where they collide)
 
-No build step. Symlink the entry point onto `PATH`:
+There are two independent ways this ships, with two separate build configs:
+
+| Path | Config | Produces |
+|---|---|---|
+| **Install the CLI** (`pip` / `pipx`) | `pyproject.toml` | a `terminal-launcher` console script on `PATH` |
+| **macOS Dock app** | `setup_py2app.py` | `dist/Terminal Launcher.app` |
+
+They're kept in separate files deliberately: a root `setup.py` would make `pip install .`
+try to run a py2app build. They still collide in exactly one place — setuptools reads
+`[project].dependencies` out of `pyproject.toml` even when you invoke `setup_py2app.py`,
+and **py2app hard-errors on any `install_requires`**. `setup_py2app.py` therefore clears it
+in a `Distribution.run_commands` override (after the pyproject metadata is applied, so it
+can't be overwritten); the bundle vendors its deps via `packages` anyway.
+
+## Installing the CLI
 
 ```sh
-ln -s "$(pwd)/bin/terminal-launcher" ~/.local/bin/terminal-launcher
+pipx install git+https://github.com/dberardi2020/terminal-launcher.git
 ```
 
-`python -m terminal_launcher` works too (via `__main__.py`) — on Windows,
+`pyproject.toml` declares the `console_scripts` entry point, and ships `web/*.html` as
+package data — without it an installed GUI can't render (`gui.py` reads `builder.html` off
+disk via `__file__`). `iterm2` is marked `sys_platform == 'darwin'` so a Windows install
+doesn't pull a macOS-only dependency.
+
+## Running from source
+
+No build step: `python -m terminal_launcher …` (via `__main__.py`) — on Windows,
 `py -m terminal_launcher …`. The CLI and the Windows Terminal backend are stdlib-only;
 install `requirements.txt` only if you need the visual composer (`pywebview`) or the
-iTerm2 backend (`iterm2`).
+iTerm2 backend (`iterm2`). (`bin/terminal-launcher` is a legacy shim still used by the
+`/restore` installers — see TLA-0022.)
 
 ## macOS Dock app (py2app)
 
-`setup.py` builds a double-clickable `.app` around the visual composer:
+`setup_py2app.py` builds a double-clickable `.app` around the visual composer:
 
 ```sh
 source .venv/bin/activate
 pip install -r requirements.txt py2app     # first time
-python setup.py py2app                     # → dist/Terminal Launcher.app
+python setup_py2app.py py2app                     # → dist/Terminal Launcher.app
 ```
 
 Drag `dist/Terminal Launcher.app` to `/Applications`. Double-clicking opens the composer
@@ -29,7 +51,7 @@ maximized (via `app_main.py` → `gui.run()`); a fleeting launch exits the app b
 
 ### Two things the bundle gets right (and why they're fragile)
 
-1. **`terminal_launcher` is shipped unzipped.** `setup.py` lists it under `packages` so
+1. **`terminal_launcher` is shipped unzipped.** `setup_py2app.py` lists it under `packages` so
    py2app copies it as a real directory. The launcher reads `web/builder.html` **off disk
    via `__file__`** — a zipped egg would break it. If you ever see the GUI fail to load its
    HTML in a bundle, this is why.
@@ -37,7 +59,7 @@ maximized (via `app_main.py` → `gui.run()`); a fleeting launch exits the app b
    so py2app's static import graph misses it; naming it explicitly pulls it in (and its
    deps — websockets, protobuf).
 
-### The plist entitlements (`setup.py`)
+### The plist entitlements (`setup_py2app.py`)
 
 | Key | Value | Why |
 |---|---|---|
@@ -64,7 +86,7 @@ signature changes). Acceptable for a personal tool; ad-hoc signing would stabili
 ### Icon
 
 `packaging/icon.png` (1024²) is the master; `packaging/icon.icns` is the bundled icon
-referenced by `setup.py`. Regenerate the master with `python packaging/make-icon.py`,
+referenced by `setup_py2app.py`. Regenerate the master with `python packaging/make-icon.py`,
 then rebuild the `.icns` (the `sips`/`iconutil` recipe is in
 [`packaging/README.md`](../../packaging/README.md)).
 

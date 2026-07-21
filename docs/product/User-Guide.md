@@ -14,11 +14,15 @@ See [Platforms & Status](Platforms-and-Status.md) for details and permissions.
 
 ## 2. Install
 
-There's no build step. Symlink the entry point onto your `PATH`:
+Install the command with [pipx](https://pipx.pypa.io) — same on macOS, Linux, and Windows:
 
 ```sh
-ln -s "$(pwd)/bin/terminal-launcher" ~/.local/bin/terminal-launcher
+pipx install git+https://github.com/dberardi2020/terminal-launcher.git
 ```
+
+That puts `terminal-launcher` on your `PATH` in an isolated environment. Prefer no install
+at all? Clone the repo and run it as a module — `python3 -m terminal_launcher …`
+(`py -m terminal_launcher …` on Windows).
 
 On macOS you can also build a double-clickable **Dock app** for the visual composer
 (py2app) — see [`packaging/README.md`](../../packaging/README.md).

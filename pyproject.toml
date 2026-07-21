@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "terminal-launcher"
+version = "1.4.0"
+description = "Compose and launch tiled Claude Code sessions with one command."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Dimitri Berardi" }]
+keywords = ["claude", "claude-code", "terminal", "iterm2", "windows-terminal", "tiling", "launcher"]
+classifiers = [
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Topic :: Utilities",
+]
+
+# The CLI itself is stdlib-only. `pywebview` is needed for the visual composer, and the
+# `iterm2` lib only for the macOS backend — marked so a Windows install doesn't drag in a
+# macOS-only dependency.
+dependencies = [
+    "pywebview>=6.2",
+    "iterm2>=2.7; sys_platform == 'darwin'",
+]
+
+[project.scripts]
+terminal-launcher = "terminal_launcher.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/dberardi2020/terminal-launcher"
+Issues = "https://github.com/dberardi2020/terminal-launcher/issues"
+
+[tool.setuptools]
+packages = ["terminal_launcher"]
+
+# The composer reads web/builder.html off disk via __file__, so it must ship as package
+# data — an sdist/wheel without it installs a GUI that can't render.
+[tool.setuptools.package-data]
+terminal_launcher = ["web/*.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
