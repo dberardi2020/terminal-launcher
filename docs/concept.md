@@ -13,12 +13,11 @@ together. Terminal Launcher lets you define those terminals once as reusable
 **panes**, arrange them into a **layout**, save the arrangement as a
 **workspace**, and launch the whole set with one command.
 
-**Rebuilt, not ported.** The predecessor was a Windows/PowerShell GUI (WPF loading
-XAML) built for one hard-coded set of panes. That machinery — PowerShell, the `.vbs`
-launcher, Windows window management, the fixed pane set — was incidental. Terminal
-Launcher keeps only the durable idea and implements it fresh: a **thin Python core**
-driving a **terminal backend** behind one interface — **iTerm2** on macOS, **Windows
-Terminal** on Windows (see [`decisions/0001-terminal-layer-and-core.md`](decisions/0001-terminal-layer-and-core.md)
+**The architecture, in one line.** A **thin Python core** (config + composition model)
+drives a **terminal backend** behind one interface — **iTerm2** on macOS, **Windows
+Terminal** on Windows. The core is platform-agnostic; each backend is a thin driver
+behind the same small contract (see
+[`decisions/0001-terminal-layer-and-core.md`](decisions/0001-terminal-layer-and-core.md)
 for the core, and [`decisions/0008-one-window-per-pane-and-windows-terminal-backend.md`](decisions/0008-one-window-per-pane-and-windows-terminal-backend.md)
 for the uniform one-window-per-pane model and the two native backends).
 
@@ -102,20 +101,15 @@ Identity is then applied: the pane's title (the iTerm2 session name on macOS, or
 injected into the Claude session. See
 [`decisions/0002-identity-injection.md`](decisions/0002-identity-injection.md).
 
-## Essence vs. incidental
+## The pane set is data, not structure
 
-- ✓ **Essence — preserved.** Panes as reusable identities (`name · color · target
-  · model`). The layout vocabulary (single/split/quad). Workspaces as saved
-  compositions. The composer + launch. One-command launch of a whole multi-pane
-  arrangement.
-- ✗ **Incidental — dropped.** Windows & PowerShell. The `.vbs` launcher and
-  shortcut installers. Windows-specific window placement. The specific hard-coded
-  pane set.
-
-**The key genericness principle:** the pane set is **data, not structure**. The
-prior build shipped one set of panes; the concept is pane-agnostic — any
-names/targets/colors work. Panes and workspaces are user configuration; the
-composer and launcher are the product.
+The load-bearing principle: **the pane set is data, not structure.** Nothing about any
+particular set of panes is baked into the tool — any names, targets, colors, and models
+work. Panes and workspaces are *user configuration*; the composer and launcher are the
+product. That is what lets one install serve any workflow: you define the panes you want,
+and Terminal Launcher composes and launches them — reusable identities (`name · color ·
+target · model`), a small layout vocabulary (single/split/combo/quad), saved compositions,
+and one-command launch of a whole multi-pane arrangement.
 
 ## Deferred
 

@@ -6,9 +6,9 @@
 
 A pane's whole point is a persistent **identity** — `name · color · target ·
 model`. On launch, that identity must show up *in the running session*, not just
-in the config, so a glance at the screen tells you which pane is which. The
-predecessor did this on Windows by naming the Claude session, titling
-the window, and typing `/color <name>` into the prompt.
+in the config, so a glance at the screen tells you which pane is which. That means
+three moving parts: naming the Claude session, titling the window, and getting
+`/color <name>` into the prompt.
 
 Replicating "type `/color` into a specific pane" is exactly where naive
 approaches break: a global keystroke send (AppleScript `keystroke`, Terminal.app)

@@ -4,15 +4,14 @@
 
 ## Context
 
-The rebuild split into two independent decisions: the *terminal layer*
+The design splits into two independent decisions: the *terminal layer*
 ([ADR 0001](0001-terminal-layer-and-core.md)) and the *composer UI*. This ADR
 records the composer.
 
 Two things shaped it. First, the tool is **fleeting**: you open it, compose or pick
-a workspace, launch, and it gets out of the way — the same open → launch → gone feel
-a native desktop app has (the predecessor was a native Windows app with a Start-Menu
-shortcut). Second, two composers are wanted: a **headless CLI** for scripting, and a
-**visual, dockable composer** for everyday use.
+a workspace, launch, and it gets out of the way — the open → launch → gone feel of a
+native desktop app. Second, two composers are wanted: a **headless CLI** for scripting,
+and a **visual, dockable composer** for everyday use.
 
 ## Decision
 
@@ -41,7 +40,7 @@ both over the same `workspaces.json`.**
 - **Server-backed web app — rejected outright.** A long-running localhost server
   directly contradicts the fleeting ethos.
 - **Heavy native frameworks (SwiftUI / Avalonia / Tauri) — rejected as overkill.** A
-  compiled native app is the eventual Dock form, but rewriting the UI in Swift/XAML or
+  compiled native app is the eventual Dock form, but rewriting the UI in Swift or C# or
   adding a Rust build toolchain is too much for a personal fleeting tool. pywebview
   reuses the HTML/CSS/JS UI and the existing Python core with no new language.
 

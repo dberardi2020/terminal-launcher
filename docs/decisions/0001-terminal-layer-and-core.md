@@ -11,13 +11,11 @@
 
 ## Context
 
-Rebuilding an earlier Windows/WPF launcher on macOS forced the single load-bearing
-question the original never had to answer portably: **how does "compose an
-arrangement of terminals and launch them" actually work?** The predecessor's
-launch-mechanism analysis split the rebuild into two independent decisions — the
-**terminal layer** (what spawns and arranges terminals) and the **UI toolkit**
-(what the composer is written in). This ADR records the terminal layer; the UI is
-[ADR 0003](0003-visual-composer-pywebview.md).
+The single load-bearing question behind the whole tool: **how does "compose an
+arrangement of terminals and launch them" actually work?** Answering it splits into two
+independent decisions — the **terminal layer** (what spawns and arranges terminals) and
+the **UI toolkit** (what the composer is written in). This ADR records the terminal
+layer; the UI is [ADR 0003](0003-visual-composer-pywebview.md).
 
 The environment at decision time: macOS with `python3` (3.14, Homebrew) and
 Terminal.app only — no tmux, iTerm2, or WezTerm preinstalled. A "someday Windows
@@ -44,9 +42,9 @@ Windows, JSON in the stdlib, and it shells out to any terminal layer cleanly.
 
 **WezTerm as the terminal layer, driven by a thin Python core.**
 
-An early spike built against Terminal.app (zero-install, real OS windows like the
-original) but it is the weakest for programmatic layout and needs a separate,
-fragile keystroke path per platform. WezTerm was chosen instead and the
+An early spike built against Terminal.app (zero-install, real OS windows) but it is
+the weakest for programmatic layout and needs a separate, fragile keystroke path per
+platform. WezTerm was chosen instead and the
 Terminal.app path was dropped.
 
 ## Rationale
@@ -58,9 +56,8 @@ Terminal.app path was dropped.
   `/color` injection functional rather than a keystroke gamble (see
   [ADR 0002](0002-identity-injection.md)). Tab titles are first-class.
 - **Real cross-platform parity.** `wezterm cli` is identical on macOS and Windows,
-  so the "someday Windows" build reuses the *same* commands instead of
-  reintroducing the WPF-shaped platform split. This is the decisive advantage over
-  the Mac-only options.
+  so the "someday Windows" build reuses the *same* commands instead of forking into a
+  platform-specific split. This is the decisive advantage over the Mac-only options.
 - **Thin Python core keeps the plumbing swappable.** The core resolves a workspace
   into platform-agnostic `ResolvedSlot`s; only `wezterm.py` knows about WezTerm. A
   different terminal layer would be one new module.

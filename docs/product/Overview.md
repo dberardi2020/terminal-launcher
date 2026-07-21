@@ -30,26 +30,17 @@ There are two ways to build a workspace: a scriptable **CLI** (`new` / `edit`) a
 native **visual composer** (`terminal-launcher gui`) — a drag-free, click-to-fill
 window for arranging slots and managing panes. Both read and write the same config.
 
-## Why it exists — rebuilt, not ported
+## How it's built
 
-Terminal Launcher is a **from-the-concept rebuild** of an earlier Windows/PowerShell
-launcher. The predecessor was a WPF GUI (loading XAML) wired to one hard-coded set of
-panes, launched through a `.vbs` script and Windows-specific window management.
+Terminal Launcher is a **thin Python core** — config plus a composition model — driving a
+**terminal backend** behind one small interface: iTerm2 on macOS, Windows Terminal on
+Windows. The core is platform-agnostic; each backend is a thin driver that spawns and
+places native windows. Adding a platform is one new module, not a fork.
 
-That machinery was **incidental**. What was durable was the *idea*: reusable pane
-identities, a small layout vocabulary, saved compositions, one-command launch. The
-rebuild keeps only that idea and implements it fresh as a **thin Python core** driving
-a **terminal backend** — iTerm2 on macOS, Windows Terminal on Windows.
-
-| | |
-|---|---|
-| ✓ **Essence — preserved** | Panes as reusable identities (`name · color · target · model`); the single/split/combo/quad layout vocabulary; workspaces as saved compositions; the composer + one-command launch. |
-| ✗ **Incidental — dropped** | Windows & PowerShell; the `.vbs` launcher and shortcut installers; Windows-specific window placement; the fixed, hard-coded pane set. |
-
-**The key principle:** the pane set is **data, not structure**. The old build shipped
-one set of panes; Terminal Launcher is pane-agnostic — any names, targets, and colors
-work. Panes and workspaces are *your configuration*; the composer and launcher are the
-product.
+**The load-bearing principle:** the pane set is **data, not structure**. Nothing about any
+particular set of panes is baked in — any names, targets, and colors work. Panes and
+workspaces are *your configuration*; the composer and launcher are the product. That is
+what lets one install serve any workflow.
 
 ## Who it's for
 

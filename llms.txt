@@ -1,0 +1,52 @@
+# Terminal Launcher
+
+> Compose and launch tiled Claude Code sessions with one command. Define terminals once
+> as reusable panes, arrange them into a layout, save it as a workspace, and launch the
+> whole set — tiled, named, and color-tagged — via native iTerm2 windows on macOS or
+> Windows Terminal windows on Windows.
+
+## What it is
+
+- A thin, platform-agnostic Python core (config + composition model) driving a terminal
+  backend behind one small interface. No build step to use the CLI.
+- Core vocabulary:
+  - **Pane** — a terminal identity: `name · color · target dir · model`. Reusable.
+  - **Layout** — `single` (1), `split` (2), `combo` (3), `quad` (2x2). `split`/`combo`
+    can be flipped horizontally. Empty slots are left as real desktop gaps on launch.
+  - **Workspace** — a saved layout with a pane assigned to each slot.
+- The pane set is *data, not structure*: any names/targets/colors work. Panes and
+  workspaces are user config; the composer and launcher are the product.
+
+## Requirements
+
+- Python 3.10+.
+- A terminal backend: iTerm2 on macOS (`brew install --cask iterm2`) or Windows Terminal
+  on Windows (`winget install Microsoft.WindowsTerminal`).
+- Claude Code (`claude`) on PATH — what each filled pane runs.
+
+## Install
+
+- macOS/Linux: `ln -s "$(pwd)/bin/terminal-launcher" ~/.local/bin/terminal-launcher`
+- Windows: run as a module — `py -m terminal_launcher ...`
+- Then: `terminal-launcher init` (seed config) and `terminal-launcher new` (compose).
+
+## Commands
+
+`list`, `panes`, `preview <name>`, `launch <name>` (`--dry-run`, `--inject-color`),
+`new`, `edit <name>`, `delete <name>`, `pane-new`, `gui`, `init`.
+
+## Config
+
+One JSON file is the source of truth. Resolution order: `--config`/`TERMINAL_LAUNCHER_CONFIG`
+→ `$XDG_CONFIG_HOME/terminal-launcher/workspaces.json` →
+`~/.config/terminal-launcher/workspaces.json`. See `workspaces.example.json`.
+
+## Docs
+
+- README.md — orientation and install.
+- docs/concept.md — the canonical concept.
+- docs/product/ — product docs; docs/technical/ — code docs; docs/decisions/ — ADRs.
+
+## License
+
+MIT © Dimitri Berardi

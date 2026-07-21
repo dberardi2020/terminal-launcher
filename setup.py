@@ -15,6 +15,11 @@ from setuptools import setup
 setup(
     app=["app_main.py"],
     name="Terminal Launcher",
+    version="1.4.0",
+    description="Compose and launch tiled Claude Code sessions with one command.",
+    author="Dimitri Berardi",
+    license="MIT",
+    url="https://github.com/dberardi2020/terminal-launcher",
     options={"py2app": {
         "argv_emulation": False,
         "iconfile": "packaging/icon.icns",

@@ -6,18 +6,30 @@ Windows. Neither is needed to *use* the tool — the CLI (`terminal-launcher` /
 
 ## macOS (.app via py2app)
 
-Build the macOS Dock app (`Terminal Launcher.app`):
-
-## Build
+Build **and install** the Dock app in one step:
 
 ```sh
 source .venv/bin/activate
-pip install -r requirements.txt py2app        # first time
-python setup.py py2app                         # → dist/Terminal Launcher.app
+pip install -r requirements.txt py2app        # first time only
+./packaging/install-macos.sh                   # build → /Applications → clean up
 ```
 
-Then drag `dist/Terminal Launcher.app` to `/Applications`. Double-clicking it opens
-the visual composer maximized; a fleeting launch exits the app behind you.
+The script builds `Terminal Launcher.app`, installs it to `/Applications`, and then
+removes `build/` and `dist/`. That last step matters: py2app writes the bundle into
+`dist/`, and leaving it there makes a **second** "Terminal Launcher" show up in
+Spotlight (the throwaway build copy alongside the real one). Cleaning up leaves
+exactly one installed copy.
+
+Double-clicking the app opens the visual composer maximized; a fleeting launch exits
+the app behind you.
+
+### Manual build (if you don't want the script)
+
+```sh
+python setup.py py2app                         # → dist/Terminal Launcher.app
+cp -R "dist/Terminal Launcher.app" /Applications/
+rm -rf build dist                              # avoid the Spotlight duplicate
+```
 
 `build/` and `dist/` are throwaway (git-ignored) — the app is rebuilt on demand, not
 kept in the (synced) project folder.

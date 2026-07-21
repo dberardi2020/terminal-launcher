@@ -26,20 +26,19 @@ There are two fundamentally different ways to tile a screen:
 | **In-terminal multiplexer** (WezTerm — today) | panes inside one terminal window | No — a pane runs a terminal program, not a GUI app |
 | **OS-window tiler** | independent application windows on screen | Yes — any window can be placed |
 
-WezTerm is the first. The predecessor was the second (Windows WPF
-arranging OS windows across virtual desktops) — which would have supported a
-Chrome pane natively. Choosing WezTerm (ADR 0001) traded OS-window generality for
-terminal-tiling wins: clean identity, deterministic splits, and — importantly —
-no Accessibility permission. Heterogeneous panes are the requirement that pulls
-back toward the OS-window model for the mixed case.
+WezTerm is the first — an in-terminal multiplexer. An OS-window tiler is the second,
+and it would support a Chrome pane natively. Choosing WezTerm (ADR 0001) traded
+OS-window generality for terminal-tiling wins: clean identity, deterministic splits,
+and — importantly — no Accessibility permission. Heterogeneous panes are the
+requirement that pulls back toward the OS-window model for the mixed case.
 
 ## The unavoidable constraint
 
 Positioning an *arbitrary* app's window on macOS (Chrome, Finder) goes through the
 **Accessibility API** (`AXPosition` / `AXSize`). There is **no permission-free
 path** — unlike WezTerm, which we drive through a CLI, arbitrary apps expose no
-such control surface. So any mixed workspace implies an Accessibility grant. This
-is the same cost the original Windows app effectively paid via window management.
+such control surface. So any mixed workspace implies an Accessibility grant — the
+unavoidable cost of positioning arbitrary application windows.
 
 ## Decision (direction)
 
