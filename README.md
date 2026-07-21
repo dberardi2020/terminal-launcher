@@ -77,6 +77,14 @@ terminal-launcher new         # interactively compose + save a workspace
 terminal-launcher launch Docs # tile it up
 ```
 
+On macOS, optionally install the **`/restore`** Claude Code command as part of setup — it
+re-applies a pane's colour + name after `/clear` (see
+[Restore identity](#restore-identity-after-clear-claude-code)):
+
+```sh
+./integrations/claude-code/install.sh
+```
+
 ### Hand it to your coding agent
 
 Already inside Claude Code (or Cursor, or any coding agent)? Paste this and it will do
@@ -92,6 +100,8 @@ https://github.com/dberardi2020/terminal-launcher
 - Windows: it runs as a module — `py -m terminal_launcher`.
 - Then run `terminal-launcher init` to seed my config, and walk me through
   `terminal-launcher new` to compose my first workspace.
+- Optional (macOS/iTerm2): run `./integrations/claude-code/install.sh` to add the
+  `/restore` command that re-applies a pane's colour + name after `/clear`.
 
 It needs Python 3.10+, Claude Code (`claude`) on my PATH, and a terminal backend:
 iTerm2 on macOS (`brew install --cask iterm2`) or Windows Terminal on Windows
@@ -143,6 +153,23 @@ tab title on Windows), and — optionally — the Claude prompt-bar **color** (`
 injected with `--inject-color` or `settings.injectColor`). On macOS injection targets the
 session directly (no Accessibility permission); on Windows it briefly focuses the window to
 paste the command.
+
+## Restore identity after `/clear` (Claude Code)
+
+That in-session identity has one weak spot: Claude Code's **`/clear`** (and reconnecting
+to a session) resets it — the colour and name are gone even though the pane is still "the
+API pane." The bundled **`/restore`** slash command puts it back. Run it right after
+`/clear` and it re-detects which pane you're in (from the working directory, against your
+`panes` registry) and re-issues `/color` and `/rename` for you.
+
+Install it once (macOS/iTerm2):
+
+```sh
+./integrations/claude-code/install.sh      # adds /restore to ~/.claude/commands
+```
+
+Then, in any launched pane, run `/restore` after a `/clear`. Details and options:
+[`integrations/claude-code/`](integrations/claude-code/README.md).
 
 ## Platform status
 
