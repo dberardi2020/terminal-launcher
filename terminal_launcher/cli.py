@@ -383,7 +383,22 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
+def _force_utf8_stdio() -> None:
+    """Make stdout/stderr UTF-8 so our box-drawing / status glyphs survive.
+
+    A Windows console defaults to cp1252, which has no `■` (the layout-preview
+    block) — printing one raises UnicodeEncodeError and kills the command
+    outright (`list` and `preview` were both fatal). Reconfiguring with
+    errors='replace' makes output safe on every platform."""
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass  # not a reconfigurable stream — carry on rather than fail a command
+
+
 def main(argv: list[str] | None = None) -> int:
+    _force_utf8_stdio()
     ap = build_parser()
     args = ap.parse_args(argv)
     path = Path(args.config).expanduser() if args.config else cfg.default_config_path()
