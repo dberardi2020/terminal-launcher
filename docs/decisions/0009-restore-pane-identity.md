@@ -45,8 +45,12 @@ detection, backend-delegated injection.**
 - Restore targets the *current* session (`ITERM_SESSION_ID`, or the foreground `wt` window) —
   a need the backends didn't have before. `restore_current` becomes a fourth backend-contract
   function; the Windows launch path's paste logic is extracted into a shared `_paste_command`.
-- The **macOS** path is verified; the **Windows Terminal** injector (foreground-window +
-  clipboard-paste) is implemented but **pending a real-session check**, like the rest of the
-  Windows backend — tracked in the backlog.
+- **Both** paths are verified on real sessions (macOS/iTerm2, and Windows Terminal per
+  TLA-0019: detection, live `/color` + `/rename`, no launch-time regression, clipboard intact).
+- Taking the **foreground** window as "this session" is sound but only when it *is* a `wt`
+  window. Falling back to an arbitrary one out of several would paste into an unrelated Claude
+  session, so ambiguity raises instead — restore fails loudly rather than editing the wrong
+  pane. Injection failures propagate for the same reason: the slash command reports what
+  actually happened.
 - Supersedes the earlier standalone `integrations/claude-code/restore.py`; the logic now lives
   in the package and the integration only installs the slash command.
