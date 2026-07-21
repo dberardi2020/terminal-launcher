@@ -27,13 +27,15 @@ strong{font-weight:650}
 <h1>Backends</h1>
 <p>The terminal-backend layer is where an abstract layout becomes real windows. It's the part of the system with the most platform reality in it — and the part most carefully sealed off behind a small contract so nothing above it has to care which terminal is running.</p>
 <h2>The contract</h2>
-<p>Both backend modules expose the <strong>same three functions</strong> (identical signatures):</p>
+<p>Both backend modules expose the <strong>same four functions</strong> (identical signatures):</p>
 <pre><code>available() -&gt; bool
 describe(layout, slots, flip: bool = False) -&gt; list[str]        # dry-run text
 launch(layout, slots, inject_color: bool = False,
        workspace_name: str = "workspace", color_delay: float = 1.5,
-       flip: bool = False) -&gt; None</code></pre>
-<p><code>slots</code> is a list of <code>model.ResolvedSlot</code>. <code>backend.py</code> is a pure router that forwards to a selected implementation and adds <code>name()</code> / <code>install_hint()</code>.</p>
+       flip: bool = False) -&gt; None
+restore_current(color: str, name: str) -&gt; None                 # re-inject into THIS session</code></pre>
+<p><code>slots</code> is a list of <code>model.ResolvedSlot</code>. <code>backend.py</code> is a pure router that forwards to a selected implementation and adds <code>name()</code> / <code>install_hint()</code> / <code>restore_identity()</code>.</p>
+<p><code>restore_current</code> is the seam behind the <code>restore</code> verb (re-apply a pane's <code>/color</code> + <code>/rename</code> after Claude Code's <code>/clear</code>). It targets the <strong>current</strong> session rather than one the backend just spawned: iTerm2 resolves it by <code>ITERM_SESSION_ID</code> and sends over the API; Windows Terminal takes the foreground <code>wt</code> window and clipboard-pastes each command. The cross-platform "which pane am I?" detection lives in <code>restore.py</code>, above the seam.</p>
 <h2>Selection (<code>backend.py</code>)</h2>
 <pre><code>def _impl():
     if iterm2_backend.available():            # macOS + iTerm2 installed
@@ -63,6 +65,7 @@ launch(layout, slots, inject_color: bool = False,
 <p>Identity is three things — the window <strong>name/title</strong>, and the Claude-side <strong><code>/color</code></strong> prompt tint:</p>
 <table><thead><tr><th></th><th>iTerm2</th><th>Windows Terminal</th></tr></thead><tbody><tr><td>Name/title</td><td><code>session.async_set_name(name)</code></td><td><code>wt --title &lt;name&gt;</code></td></tr><tr><td><code>/color</code> delivery</td><td><code>async_send_text</code> — <strong>no focus needed</strong></td><td><strong>focus the window</strong> (<code>AttachThreadInput</code>) then <strong>paste</strong> via the clipboard (Ctrl+V)</td></tr><tr><td>Submit</td><td>separate <code>async_send_text("\r")</code></td><td>separate Enter keystroke</td></tr></tbody></table>
 <p><strong>The load-bearing gotcha (both backends):</strong> a <code>/color &lt;name&gt;</code> command must be delivered and then submitted <em>separately</em>, and Claude's slash-command autocomplete can eat characters. iTerm2 sends the text then a lone CR. Windows has no per-pane send API, so it <strong>pastes</strong> the whole command via the clipboard (Ctrl+V) — one atomic input event autocomplete can't split — then a separate Enter. Paste is preferred over per-character typing precisely because it's 1–2 synthetic events, not one per letter; the clipboard is saved/restored around it. See <a href="../decisions/0002-identity-injection.md">ADR 0002</a>.</p>
+<p><strong>Re-injection (<code>restore_current</code>).</strong> <code>restore</code> reuses exactly these delivery paths, but aimed at the session the command runs <em>in</em> rather than one just spawned — iTerm2 by <code>ITERM_SESSION_ID</code>, Windows Terminal by the foreground <code>wt</code> window (Windows shares the launch-time <code>_paste_command</code> helper). It sends both <code>/color</code> and <code>/rename</code>. See <a href="../decisions/0009-restore-pane-identity.md">ADR 0009</a>.</p>
 <p><strong>Readiness.</strong> Both wait before injecting: after the configured <code>color_delay</code>, iTerm2 <code>_wait_ready</code> polls the pane's screen text for markers (<code>"shift+tab"</code>, <code>"auto-accept"</code>, …); the Windows backend polls the window title until it carries the pane name (Claude sets it via <code>-n</code>) so the command lands in a ready prompt, not a booting TUI.</p>
 <h2>Gotchas worth remembering</h2>
 <ul><li>The model is uniform — real desktop gaps on both platforms, no compaction anywhere.</li><li><code>wt</code> has <strong>no per-pane text API</strong> (unlike iTerm2's <code>send-text</code>); <code>/color</code> therefore needs real window focus on Windows, which is the one thing the injection path must get right.</li><li>Set ctypes arg/restypes for any Win32 call taking an <code>HWND</code>, or 64-bit handles truncate.</li><li>Placement compensates for the DWM invisible border; skipping that leaves visible seams between adjacent panes.</li></ul>

@@ -100,8 +100,8 @@ https://github.com/dberardi2020/terminal-launcher
 - Windows: it runs as a module — `py -m terminal_launcher`.
 - Then run `terminal-launcher init` to seed my config, and walk me through
   `terminal-launcher new` to compose my first workspace.
-- Optional (macOS/iTerm2): run `./integrations/claude-code/install.sh` to add the
-  `/restore` command that re-applies a pane's colour + name after `/clear`.
+- Optional: run `./integrations/claude-code/install.sh` to add the `/restore` Claude Code
+  command that re-applies a pane's colour + name after `/clear`.
 
 It needs Python 3.10+, Claude Code (`claude`) on my PATH, and a terminal backend:
 iTerm2 on macOS (`brew install --cask iterm2`) or Windows Terminal on Windows
@@ -129,6 +129,7 @@ You can also build a Dock/Start-Menu app for the visual composer — **macOS** v
 | `pane-new` | Interactively add a new pane (terminal identity). |
 | `gui` | Open the visual composer — a native window (launchpad + click-a-cell editor + pane management). |
 | `init` | Create a starter config from the bundled example. |
+| `restore` | Re-apply this pane's `/color` + `/rename` after Claude Code's `/clear` (see [Restore identity](#restore-identity-after-clear-claude-code)). `--detect-only` prints the identity without injecting. |
 
 The interactive `new` / `edit` / `pane-new` verbs **write back to the config** — the CLI
 and the visual composer edit the same file and never diverge.
@@ -159,17 +160,22 @@ paste the command.
 That in-session identity has one weak spot: Claude Code's **`/clear`** (and reconnecting
 to a session) resets it — the colour and name are gone even though the pane is still "the
 API pane." The bundled **`/restore`** slash command puts it back. Run it right after
-`/clear` and it re-detects which pane you're in (from the working directory, against your
-`panes` registry) and re-issues `/color` and `/rename` for you.
+`/clear` and it re-detects which pane you're in — from the working directory, against your
+`panes` registry — and re-issues `/color` and `/rename`. Detection is cross-platform; the
+re-injection goes through the same backend seam that launches the panes (iTerm2 on macOS,
+Windows Terminal on Windows).
 
-Install it once (macOS/iTerm2):
+Install the command once:
 
 ```sh
 ./integrations/claude-code/install.sh      # adds /restore to ~/.claude/commands
 ```
 
-Then, in any launched pane, run `/restore` after a `/clear`. Details and options:
-[`integrations/claude-code/`](integrations/claude-code/README.md).
+Then, in any launched pane, run `/restore` after a `/clear` — it's the packaged
+`terminal-launcher restore` under the hood. Details and options:
+[`integrations/claude-code/`](integrations/claude-code/README.md). *(macOS is verified;
+the Windows Terminal path is implemented and pending a real-session check, like the rest of
+the Windows backend.)*
 
 ## Platform status
 

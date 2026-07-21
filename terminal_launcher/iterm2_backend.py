@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import platform
 import shlex
 import shutil
@@ -242,6 +243,33 @@ async def _inject_color(session, color: str) -> None:
         await asyncio.sleep(0.2)
     except Exception as e:
         _log.warning("color inject failed: %s", e)
+
+
+def restore_current(color: str, name: str) -> None:
+    """Re-inject `/color` + `/rename` into THIS iTerm2 session (the one we're
+    running in), identified by `ITERM_SESSION_ID` — addressed to the session
+    directly, so no focus or Accessibility permission is needed. Used by the
+    `restore` command after Claude Code's `/clear` wipes the pane's identity."""
+    import iterm2
+
+    sid = os.environ.get("ITERM_SESSION_ID", "")
+    uuid = sid.split(":", 1)[1] if ":" in sid else sid
+
+    async def _main(connection):
+        app = await iterm2.async_get_app(connection)
+        session = app.get_session_by_id(uuid)
+        if session is None:
+            raise RuntimeError(f"could not resolve current iTerm2 session {uuid!r}")
+        # text then a lone CR, as separate sends — a single "/cmd x\r" types but
+        # doesn't submit in Claude's TUI (same rule as launch-time injection).
+        await session.async_send_text(f"/color {color}"); await asyncio.sleep(0.25)
+        await session.async_send_text("\r");              await asyncio.sleep(0.15)
+        await session.async_send_text(f"/rename {name}"); await asyncio.sleep(0.25)
+        await session.async_send_text("\r")
+
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    iterm2.run_until_complete(_main, retry=False)  # retry=False: its retry loops forever on auth denial
 
 
 _SHELL_NAMES = {"-zsh", "zsh", "-bash", "bash", "login", "-fish", "fish", "sh", "-sh"}

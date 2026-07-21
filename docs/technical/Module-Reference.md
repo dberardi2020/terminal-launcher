@@ -58,6 +58,21 @@ intended single source of truth for geometry.
 in the tests. `plan()`/`SPLIT_PLAN` are no longer on the launch path — the native backends
 place by slot *rectangle*, not split direction.
 
+### `restore.py`
+**Owns** re-applying a launched pane's in-session identity (`/color` + `/rename`) after
+Claude Code's `/clear` wipes it. Detection is cross-platform; injection is delegated to the
+backend seam — the same split the launcher uses.
+
+- `detect(config, config_path, cwd=None)` — matches `cwd` against each pane's `target`
+  (longest match wins), with a per-session sentinel keyed by `ITERM_SESSION_ID` /
+  `WT_SESSION` that remembers the identity after you `cd` away. Returns `(id, name, color,
+  target)` or `None`. Unit-tested (`tests/test_restore.py`).
+- `restore(config_path, detect_only=False)` — detect, then `backend.restore_identity(color,
+  name)` unless `detect_only`.
+
+*Imports:* `config`, `backend`. *Consumed by:* the `restore` CLI verb and the Claude Code
+`/restore` command ([`integrations/claude-code/`](../../integrations/claude-code/README.md)).
+
 ---
 
 ## Backend seam
@@ -72,6 +87,8 @@ place by slot *rectangle*, not split direction.
 - Re-exports the contract: `available()`, `describe(layout, slots, flip)`,
   `launch(layout, slots, inject_color, workspace_name, color_delay, flip)`, plus
   `name()` and `install_hint()`.
+- `restore_identity(color, name)` — routes to the active backend's `restore_current`
+  (re-inject identity into the *current* session); the seam behind the `restore` verb.
 
 ### `iterm2_backend.py` · `windows_terminal_backend.py`
 The two native terminal backends behind the contract — full treatment in
@@ -80,10 +97,13 @@ placed at its rect, with real desktop gaps for empties (no compaction). In brief
 
 - **`iterm2_backend.py`** — async, drives the iTerm2 Python API on its own event loop; a
   window per slot, `async_set_frame` to the Cocoa rect. Auth via Automation permission.
+  `restore_current(color, name)` re-injects `/color` + `/rename` into the current session
+  (resolved by `ITERM_SESSION_ID`).
 - **`windows_terminal_backend.py`** — pure `ctypes`; spawns `wt -w new` per slot, finds the
   window by class-name diff, and `SetWindowPos`es it to the Win32 rect (DPI + DWM
   compensation). `/color` via focus + clipboard paste (no `send-text` equivalent). No
-  permission prompt.
+  permission prompt. `restore_current(color, name)` pastes `/color` + `/rename` into the
+  current wt window (the shared `_paste_command` helper).
 
 ---
 
@@ -94,7 +114,10 @@ placed at its rect, with real desktop gaps for empties (no compaction). In brief
 
 - `build_parser()` — verbs: `list`, `panes`, `preview <name>`, `launch <name>
   [--dry-run] [--inject-color]`, `new`, `edit <name>`, `delete <name>`, `pane-new`,
-  `gui`, `init`, `logs [--lines]`, plus a global `--config`.
+  `gui`, `init`, `logs [--lines]`, `restore [--detect-only]`, plus a global `--config`.
+- `cmd_restore(path, args)` — re-applies this pane's identity via `restore.py`; prints
+  tab-delimited `DETECTED` / `RESTORED` / `UNKNOWN` / `ERROR` lines (exit 0/0/2/1) so the
+  Claude Code `/restore` command can interpret the result.
 - `main()` — resolves the config path, chooses a load policy per verb (`_load_or_die`
   vs `_load_or_seed` vs empty for `init`), dispatches, returns `130` on
   `KeyboardInterrupt`.

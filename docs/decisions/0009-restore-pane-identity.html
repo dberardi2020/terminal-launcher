@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>0009 — Restore pane identity after /clear</title><style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:760px;margin:0 auto;padding:64px 28px 120px}
+h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
+h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
+h3{font-size:1.08rem;margin:1.8em 0 .4em}
+p{margin:.7em 0}
+a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
+a:hover{border-bottom-color:var(--link)}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.86em/1.4 ui-monospace,SFMono-Regular,Menlo,monospace}
+pre{background:var(--code-bg);padding:16px 18px;border-radius:8px;overflow-x:auto;border:1px solid var(--line)}
+pre code{background:none;padding:0;font-size:.85em}
+ul,ol{padding-left:1.4em;margin:.7em 0}
+li{margin:.3em 0}
+blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
+blockquote strong{color:var(--fg)}
+table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+th{background:var(--code-bg);font-weight:600}
+hr{border:none;border-top:1px solid var(--line);margin:2em 0}
+strong{font-weight:650}
+</style></head><body><main class="wrap">
+<h1>0009 — Restore pane identity after <code>/clear</code></h1>
+<p><strong>Status:</strong> Accepted · <strong>Date:</strong> 2026-07-21</p>
+<h2>Context</h2>
+<p>A launched pane carries an identity — the Claude session name, the window/tab title, and the prompt-bar <code>/color</code> (see <a href="0002-identity-injection.md">ADR 0002</a>). Claude Code's <code>/clear</code>, and reconnecting to a session, resets the <em>in-session</em> parts: the <code>/color</code> and the session name are gone, even though the pane is still "the API pane." There's no event to hook, so re-applying identity has to be an explicit, on-demand action.</p>
+<p>The tool is cross-platform (iTerm2 on macOS, Windows Terminal on Windows), so restore must not become a macOS-only bolt-on. (An earlier attempt was exactly that — a standalone script that hardcoded the iTerm2 API.)</p>
+<h2>Decision</h2>
+<p><strong>A <code>restore</code> capability that splits the same way the launcher does: cross-platform detection, backend-delegated injection.</strong></p>
+<ul><li><strong>Detection</strong> (<code>restore.py</code>, platform-agnostic): match the current working directory against each pane's <code>target</code> (longest match wins), with a per-session sentinel — keyed by <code>ITERM_SESSION_ID</code> / <code>WT_SESSION</code> — that remembers the identity after you <code>cd</code> away.</li><li><strong>Injection</strong> through the existing backend seam: <code>backend.restore_identity(color, name)</code> → the active backend's <code>restore_current</code>, reusing the launch-time delivery paths but aimed at the <em>current</em> session.</li><li>Exposed as <code>terminal-launcher restore</code> (also <code>python -m terminal_launcher restore</code>), and surfaced to Claude Code as a <code>/restore</code> slash command under <a href="../../integrations/claude-code/README.md"><code>integrations/claude-code/</code></a> — a template + an installer that bakes this checkout's paths in.</li></ul>
+<h2>Rationale</h2>
+<ul><li><strong>Cross-platform by construction.</strong> Only injection is platform-specific, and the tool already has both implementations; restore reuses them rather than reimplementing one.</li><li><strong>Detection is the reusable, testable core.</strong> It's pure (cwd + config), so it's unit-tested once (<code>tests/test_restore.py</code>) and behaves identically on every platform.</li><li><strong>A Claude Code integration, not a general CLI use.</strong> Restore only makes sense inside a launched pane, so the primary UX is the <code>/restore</code> slash command; the CLI verb is the mechanism it calls.</li></ul>
+<h2>Consequences</h2>
+<ul><li>Restore targets the <em>current</em> session (<code>ITERM_SESSION_ID</code>, or the foreground <code>wt</code> window) — a need the backends didn't have before. <code>restore_current</code> becomes a fourth backend-contract function; the Windows launch path's paste logic is extracted into a shared <code>_paste_command</code>.</li><li>The <strong>macOS</strong> path is verified; the <strong>Windows Terminal</strong> injector (foreground-window + clipboard-paste) is implemented but <strong>pending a real-session check</strong>, like the rest of the Windows backend — tracked in the backlog.</li><li>Supersedes the earlier standalone <code>integrations/claude-code/restore.py</code>; the logic now lives in the package and the integration only installs the slash command.</li></ul>
+</main></body></html>

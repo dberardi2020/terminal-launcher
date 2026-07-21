@@ -13,6 +13,7 @@ Each records context, the options weighed, the decision, and its consequences.
 | [0006](0006-workspace-reordering-affordance.md) | **Workspace reordering**: inline arrows + Jump-to-front/end in the ⋯ menu | Accepted |
 | [0007](0007-iterm2-backend-and-real-gap-layouts.md) | **macOS terminal layer → iTerm2** backend + **real-gap** partial layouts | Accepted · full-layout behavior superseded by [0008](0008-one-window-per-pane-and-windows-terminal-backend.md) |
 | [0008](0008-one-window-per-pane-and-windows-terminal-backend.md) | **One window per pane** (all layouts) + a **Windows Terminal** backend; WezTerm removed | Accepted |
+| [0009](0009-restore-pane-identity.md) | **Restore pane identity** after `/clear` — cross-platform detect + backend-delegated re-injection | Accepted |
 
 Numbered, append-only. A superseded decision stays and is marked
 `Superseded by NNNN` rather than edited away.

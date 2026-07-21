@@ -35,12 +35,21 @@ Inside any pane Terminal Launcher launched, after a `/clear`:
 You can pass a follow-up task — `/restore <task>` — and it continues with that once the
 identity is re-applied (restore is fire-and-forget and doesn't block).
 
-## How it works (and why it's macOS/iTerm2 only)
+## How it works
 
-`restore.py` finds your pane's identity by matching the current directory to a pane's
-`target` in `~/.config/terminal-launcher/workspaces.json` (remembering the match in a
-per-session sentinel so it still works after you `cd` away), then injects the two
-commands into the **current** iTerm2 session over iTerm2's Python API — addressed to the
-session directly, so it needs no window focus and no Accessibility permission. That API
-is iTerm2-specific, so `/restore` is macOS-only today (the same platform seam as the
-launcher's iTerm2 backend).
+The slash command just runs the packaged `terminal-launcher restore` (as
+`python -m terminal_launcher restore`) with this checkout's venv python. That command
+splits the work the same way the rest of the tool does:
+
+- **Detection is cross-platform** (`terminal_launcher/restore.py`): it matches the current
+  directory against each pane's `target` in `~/.config/terminal-launcher/workspaces.json`
+  (longest match wins), remembering the match in a per-session sentinel so it still works
+  after you `cd` away.
+- **Injection is delegated to the active terminal backend** (`backend.restore_identity`),
+  exactly like launch — **iTerm2** on macOS (addressed to the session over the iTerm2 API,
+  no focus/Accessibility needed) and **Windows Terminal** on Windows (clipboard-paste into
+  the current window).
+
+So `/restore` follows the platform automatically. macOS is verified; the Windows Terminal
+injector is implemented and pending a real-session check, like the rest of the Windows
+backend.

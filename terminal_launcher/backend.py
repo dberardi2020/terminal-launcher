@@ -66,3 +66,17 @@ def launch(layout, slots, inject_color: bool = False,
     return impl.launch(layout, slots, inject_color=inject_color,
                        workspace_name=workspace_name,
                        color_delay=color_delay, flip=flip)
+
+
+def restore_identity(color: str, name: str) -> None:
+    """Re-inject `/color` + `/rename` into the CURRENT terminal session.
+
+    The `restore` command uses this to re-apply a pane's identity after Claude
+    Code's `/clear` wipes it. Routes to the active backend's `restore_current`,
+    mirroring launch()'s per-platform seam (iTerm2 / Windows Terminal)."""
+    impl = _impl()
+    if impl is None:
+        raise RuntimeError(
+            "No supported terminal backend on this platform. "
+            "macOS: install iTerm2. Windows: install Windows Terminal.")
+    impl.restore_current(color, name)

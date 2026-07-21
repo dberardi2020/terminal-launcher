@@ -4,14 +4,14 @@ Restore this Claude Code session's **pane identity** — re-apply `/color` and `
 
 **Run:**
 ```bash
-env -u PYTHONHOME -u PYTHONPATH "{{PYTHON}}" "{{SCRIPT}}"
+env -u PYTHONHOME PYTHONPATH="{{REPO}}" "{{PYTHON}}" -m terminal_launcher restore
 ```
 
 **Then interpret the output:**
 - `DETECTED …` + `RESTORED …` → the `/color` and `/rename` are queued and run as this turn ends. Tell the user: *"Restored `<name>` (`<color>`)."*
 - exit `2` / `UNKNOWN …` → this pane's cwd matched no Terminal Launcher pane. Show the `name=color` pairs it printed and ask which to restore — don't guess.
-- `could not resolve … session` → not running under iTerm2, or the API lacks Automation permission (System Settings › Privacy & Security › Automation).
+- `ERROR …` → injection failed: no terminal backend, or the current session couldn't be resolved. On macOS/iTerm2 that usually means the API lacks Automation permission (System Settings › Privacy & Security › Automation).
 
 If `$ARGUMENTS` is non-empty, continue with that task now — identity restore is fire-and-forget and doesn't block it.
 
-*(Companion to Terminal Launcher — reads the same `panes` registry it launches from. Regenerate this file with `integrations/claude-code/install.sh`.)*
+*(Runs the packaged `terminal-launcher restore` command against this checkout. Regenerate this file with `integrations/claude-code/install.sh`.)*

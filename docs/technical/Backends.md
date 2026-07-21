@@ -7,7 +7,7 @@ running.
 
 ## The contract
 
-Both backend modules expose the **same three functions** (identical signatures):
+Both backend modules expose the **same four functions** (identical signatures):
 
 ```python
 available() -> bool
@@ -15,10 +15,17 @@ describe(layout, slots, flip: bool = False) -> list[str]        # dry-run text
 launch(layout, slots, inject_color: bool = False,
        workspace_name: str = "workspace", color_delay: float = 1.5,
        flip: bool = False) -> None
+restore_current(color: str, name: str) -> None                 # re-inject into THIS session
 ```
 
 `slots` is a list of `model.ResolvedSlot`. `backend.py` is a pure router that forwards to
-a selected implementation and adds `name()` / `install_hint()`.
+a selected implementation and adds `name()` / `install_hint()` / `restore_identity()`.
+
+`restore_current` is the seam behind the `restore` verb (re-apply a pane's `/color` +
+`/rename` after Claude Code's `/clear`). It targets the **current** session rather than one
+the backend just spawned: iTerm2 resolves it by `ITERM_SESSION_ID` and sends over the API;
+Windows Terminal takes the foreground `wt` window and clipboard-pastes each command. The
+cross-platform "which pane am I?" detection lives in `restore.py`, above the seam.
 
 ## Selection (`backend.py`)
 
@@ -133,6 +140,11 @@ command via the clipboard (Ctrl+V) — one atomic input event autocomplete can't
 separate Enter. Paste is preferred over per-character typing precisely because it's 1–2 synthetic
 events, not one per letter; the clipboard is saved/restored around it. See
 [ADR 0002](../decisions/0002-identity-injection.md).
+
+**Re-injection (`restore_current`).** `restore` reuses exactly these delivery paths, but aimed
+at the session the command runs *in* rather than one just spawned — iTerm2 by `ITERM_SESSION_ID`,
+Windows Terminal by the foreground `wt` window (Windows shares the launch-time `_paste_command`
+helper). It sends both `/color` and `/rename`. See [ADR 0009](../decisions/0009-restore-pane-identity.md).
 
 **Readiness.** Both wait before injecting: after the configured `color_delay`, iTerm2
 `_wait_ready` polls the pane's screen text for markers (`"shift+tab"`, `"auto-accept"`, …);

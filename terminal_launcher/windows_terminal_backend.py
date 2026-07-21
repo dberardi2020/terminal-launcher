@@ -379,8 +379,8 @@ def _paste_and_enter() -> None:
     _send([_vkey(_VK_RETURN, False), _vkey(_VK_RETURN, True)])
 
 
-def _inject_color(hwnd: int, color: str) -> None:
-    """Focus the window and paste `/color <name>` + Enter.
+def _paste_command(hwnd: int, text: str) -> None:
+    """Focus `hwnd` and paste `text` + Enter, via the clipboard.
 
     Clipboard paste, not per-character typing: the whole command lands atomically, so
     autocomplete can't split it — far fewer synthetic input events than typing each
@@ -390,12 +390,12 @@ def _inject_color(hwnd: int, color: str) -> None:
     lock = _acquire_lock()
     try:
         saved = _clip_get()
-        if not _clip_set(f"/color {color}"):
-            _log.warning("could not set clipboard for /color '%s'; skipping", color)
+        if not _clip_set(text):
+            _log.warning("could not set clipboard for %r; skipping", text)
             return
         time.sleep(0.1)
         if not _force_foreground(hwnd):
-            _log.warning("could not foreground window for /color '%s'; skipping", color)
+            _log.warning("could not foreground window for %r; skipping", text)
             return
         _paste_and_enter()
         time.sleep(0.1)
@@ -403,6 +403,40 @@ def _inject_color(hwnd: int, color: str) -> None:
             _clip_set(saved)   # restore the user's clipboard
     finally:
         _release_lock(lock)
+
+
+def _inject_color(hwnd: int, color: str) -> None:
+    """Focus the window and paste `/color <name>` + Enter (launch-time injection)."""
+    _paste_command(hwnd, f"/color {color}")
+
+
+def _class_name(hwnd: int) -> str:
+    buf = ctypes.create_unicode_buffer(64)
+    ctypes.windll.user32.GetClassNameW(hwnd, buf, 64)
+    return buf.value
+
+
+def restore_current(color: str, name: str) -> None:
+    """Re-inject `/color` + `/rename` into the CURRENT Windows Terminal window.
+
+    Unlike launch (which places windows it just spawned), restore targets the wt
+    window this Claude session runs in — taken as the foreground window, which is the
+    focused pane the user runs `/restore` from; it falls back to the sole wt window if
+    the foreground isn't one. Each command is pasted via the clipboard, exactly like
+    launch-time `/color` injection.
+
+    NOTE: mirrors the macOS restore path but is not yet verified on a real Windows
+    session (the foreground-window assumption in particular) — see the backlog."""
+    _configure()
+    u = ctypes.windll.user32
+    u.GetForegroundWindow.restype = wintypes.HWND   # else a 64-bit HWND truncates to int
+    hwnd = u.GetForegroundWindow()
+    if _class_name(hwnd) != _WT_CLASS:
+        hwnd = next(iter(_wt_windows()), 0)
+    if not hwnd:
+        raise RuntimeError("could not find a Windows Terminal window to restore into")
+    _paste_command(hwnd, f"/color {color}")
+    _paste_command(hwnd, f"/rename {name}")
 
 
 # ---- command building -------------------------------------------------------

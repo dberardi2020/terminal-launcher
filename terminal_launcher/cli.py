@@ -346,6 +346,32 @@ def cmd_init(config: dict, path: Path, args) -> int:
     return 0
 
 
+def cmd_restore(path: Path, args) -> int:
+    """Re-apply this pane's identity after `/clear`. Machine-readable, tab-delimited
+    output so the Claude Code `/restore` command can interpret it:
+      DETECTED\\t<name>\\t<color>            — identity found (always printed on a hit)
+      RESTORED\\t/color <c>  +  /rename <n>  — injection ran (exit 0)
+      UNKNOWN\\t<name>=<color>\\t...          — cwd matched no pane (exit 2)
+      ERROR\\t<message>                      — injection failed, e.g. no backend (exit 1)
+    """
+    from . import restore as restore_mod
+    if not path.exists():
+        print("UNKNOWN\t(no config)")
+        return 2
+    try:
+        res = restore_mod.restore(path, detect_only=getattr(args, "detect_only", False))
+    except Exception as e:  # backend missing, session unresolved, etc.
+        print(f"ERROR\t{e}", file=sys.stderr)
+        return 1
+    if not res["ok"]:
+        print("UNKNOWN\t" + "\t".join(f"{n}={c}" for n, c in res["panes"]))
+        return 2
+    print(f"DETECTED\t{res['name']}\t{res['color']}")
+    if res["injected"]:
+        print(f"RESTORED\t/color {res['color']}  +  /rename {res['name']}")
+    return 0
+
+
 # ---- argparse wiring --------------------------------------------------------
 
 def build_parser() -> argparse.ArgumentParser:
@@ -380,6 +406,11 @@ def build_parser() -> argparse.ArgumentParser:
     ed.add_argument("name")
     dl = sub.add_parser("delete", help="delete a workspace")
     dl.add_argument("name")
+
+    rs = sub.add_parser("restore",
+                        help="re-apply this pane's /color + /rename (after Claude Code's /clear)")
+    rs.add_argument("--detect-only", action="store_true",
+                    help="print the detected identity without injecting")
     return ap
 
 
@@ -410,6 +441,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.cmd == "logs":
         return cmd_logs(args)
+
+    if args.cmd == "restore":
+        return cmd_restore(path, args)
 
     # Commands that must not fail on a missing config (they create/seed it):
     if args.cmd == "init":

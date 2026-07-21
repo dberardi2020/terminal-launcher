@@ -33,7 +33,6 @@ if [[ "$UNINSTALL" == 1 ]]; then
 fi
 
 PYTHON="$REPO/.venv/bin/python"
-SCRIPT="$HERE/restore.py"
 
 if [[ ! -x "$PYTHON" ]]; then
   echo "error: no venv python at '$PYTHON'." >&2
@@ -42,10 +41,9 @@ if [[ ! -x "$PYTHON" ]]; then
 fi
 
 mkdir -p "$CMD_DIR"
-sed -e "s|{{PYTHON}}|$PYTHON|g" -e "s|{{SCRIPT}}|$SCRIPT|g" \
+sed -e "s|{{PYTHON}}|$PYTHON|g" -e "s|{{REPO}}|$REPO|g" \
   "$HERE/restore.md.template" > "$DEST"
 
 echo "Installed /$NAME -> $DEST"
-echo "  python: $PYTHON"
-echo "  script: $SCRIPT"
+echo "  runs: $PYTHON -m terminal_launcher restore   (from $REPO)"
 echo "Use it inside any launched Claude Code pane: run /$NAME right after /clear."

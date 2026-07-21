@@ -98,6 +98,7 @@ Claude with its assigned model. Useful flags:
 | `pane-new` | Interactively add a new pane (terminal identity). |
 | `gui` | Open the visual composer. |
 | `init` | Create a starter config from the bundled example. |
+| `restore` | Re-apply this pane's `/color` + `/rename` after Claude Code's `/clear` (`--detect-only` to check without injecting). |
 
 ## 7. Identity in-session
 
@@ -108,6 +109,12 @@ A launched pane carries its identity three ways:
 - **Color** *(optional)* — `/color <name>` injected into the Claude prompt bar, via
   `--inject-color` or `settings.injectColor`. Injection targets a specific pane
   directly, so it needs no Accessibility permission.
+
+**After `/clear`:** Claude Code's `/clear` (and reconnecting) resets the in-session colour
+and name. Run **`/restore`** in the pane to re-apply them — it detects which pane you are by
+directory and re-issues `/color` + `/rename`. Install the slash command with
+`./integrations/claude-code/install.sh` (it runs `terminal-launcher restore`). See
+[ADR 0009](../decisions/0009-restore-pane-identity.md).
 
 ## 8. Configuration essentials
 
