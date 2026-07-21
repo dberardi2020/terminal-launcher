@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Windows smoke test — Terminal Launcher</title>
+<style>
+:root{--bg:#fbfbfa;--fg:#22201d;--muted:#6b6862;--line:#e6e3dd;--code-bg:#f0eee9;--accent:#b5651d;--link:#a1571a;--ok:#4a7a3a;--warn:#b5651d}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1917;--fg:#e6e3dd;--muted:#9a968e;--line:#332f2a;--code-bg:#26241f;--accent:#d99a5b;--link:#e0a866;--ok:#8fbf78;--warn:#d99a5b}}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;margin:0}
+.wrap{max-width:820px;margin:0 auto;padding:40px 24px 120px}
+h1{font-size:1.9rem;line-height:1.2;margin:0 0 .2em;letter-spacing:-.02em}
+.sub{color:var(--muted);margin:0 0 1.4em}
+code{background:var(--code-bg);padding:.12em .4em;border-radius:4px;font:.85em/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+pre{background:var(--code-bg);padding:12px 14px;border-radius:8px;overflow-x:auto;border:1px solid var(--line);margin:.5em 0}
+pre code{background:none;padding:0}
+a{color:var(--link)}
+/* sticky progress header */
+.bar{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);padding:12px 0;margin-bottom:8px;z-index:5;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.track{flex:1;min-width:160px;height:10px;background:var(--code-bg);border-radius:6px;overflow:hidden;border:1px solid var(--line)}
+.fill{height:100%;width:0;background:var(--accent);transition:width .2s}
+.count{font-variant-numeric:tabular-nums;color:var(--muted);font-size:.9em;white-space:nowrap}
+button{font:inherit;color:var(--fg);background:var(--code-bg);border:1px solid var(--line);border-radius:6px;padding:5px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+section{border:1px solid var(--line);border-radius:10px;padding:6px 18px 14px;margin:16px 0;background:var(--bg)}
+h2{font-size:1.12rem;margin:.8em 0 .3em;display:flex;align-items:baseline;gap:.5em}
+h2 .tag{font-size:.7rem;font-weight:600;color:var(--bg);background:var(--accent);padding:1px 7px;border-radius:10px;letter-spacing:.02em}
+.key{border-color:var(--accent)}
+.hint{color:var(--muted);font-size:.92em;margin:.2em 0 .7em}
+ul{list-style:none;padding:0;margin:.3em 0}
+li{margin:.15em 0}
+label{display:flex;gap:.6em;align-items:flex-start;padding:5px 6px;border-radius:6px;cursor:pointer}
+label:hover{background:var(--code-bg)}
+input[type=checkbox]{margin-top:.28em;width:17px;height:17px;accent-color:var(--accent);flex:none;cursor:pointer}
+label span .exp{display:block;color:var(--muted);font-size:.9em}
+input:checked ~ span .lead{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
+.callout{border-left:3px solid var(--warn);background:var(--code-bg);border-radius:0 6px 6px 0;padding:.5em .9em;margin:.6em 0;font-size:.93em}
+.callout b{color:var(--warn)}
+textarea{width:100%;min-height:110px;font:inherit;background:var(--code-bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;resize:vertical}
+.done h2 .tag{background:var(--ok)}
+footer{color:var(--muted);font-size:.85em;margin-top:2em;border-top:1px solid var(--line);padding-top:1em}
+</style></head>
+<body><main class="wrap">
+<h1>Windows smoke test</h1>
+<p class="sub">Manual companion for verifying the <code>windows-terminal-backend</code> branch on Windows 11.
+Ticks persist in your browser (localStorage). The parts already verified in-repo (geometry, window
+discovery, placement, DWM compensation, clipboard round-trip) are noted; the real launch is what's left.</p>
+
+<div class="bar">
+  <div class="track"><div class="fill" id="fill"></div></div>
+  <div class="count" id="count">0 / 0</div>
+  <button id="reset" type="button">Reset</button>
+</div>
+
+<section>
+  <h2>0. Setup</h2>
+  <p class="hint">On the PC, with <code>wt</code> and <code>claude</code> on <code>PATH</code>.</p>
+  <pre><code>git checkout windows-terminal-backend
+py -c "import shutil; print(shutil.which('wt'), shutil.which('claude'))"</code></pre>
+  <ul>
+    <li><label><input type="checkbox"><span><span class="lead">On branch <code>windows-terminal-backend</code></span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead"><code>wt</code> and <code>claude</code> both resolve</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">A config with a few panes + workspaces exists</span><span class="exp"><code>py -m terminal_launcher init</code> then <code>new</code>, or point <code>TERMINAL_LAUNCHER_CONFIG</code> at a scratch file</span></span></label></li>
+  </ul>
+</section>
+
+<section>
+  <h2>1. Dry run</h2>
+  <pre><code>py -m terminal_launcher launch &lt;ws&gt; --dry-run</code></pre>
+  <ul>
+    <li><label><input type="checkbox"><span><span class="lead">Prints a per-slot plan</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">Rects match the layout</span><span class="exp">halves / quarters of your work area (screen minus taskbar)</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">Each filled slot shows <code>claude -n &lt;name&gt; --model &lt;model&gt;</code> with the right cwd</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">Empty slots read <code>(empty — desktop gap)</code></span></span></label></li>
+  </ul>
+</section>
+
+<section>
+  <h2>2. Single</h2>
+  <pre><code>py -m terminal_launcher launch &lt;single-ws&gt;</code></pre>
+  <ul>
+    <li><label><input type="checkbox"><span><span class="lead">One <code>wt</code> window opens</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">Fills the whole work area, below the taskbar (no gap at any edge)</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">Claude runs in the pane's target directory</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">Tab title = pane name; tab color = pane color (<code>--tabColor</code>)</span></span></label></li>
+  </ul>
+</section>
+
+<section>
+  <h2>3. Split</h2>
+  <ul>
+    <li><label><input type="checkbox"><span><span class="lead">Two <code>wt</code> windows, clean left &amp; right halves</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead"><b>No visible seam / gap</b> between them</span><span class="exp">this is the DWM invisible-border compensation working live</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">Each Claude in its own dir; titles + colors correct</span></span></label></li>
+  </ul>
+</section>
+
+<section>
+  <h2>4. Combo <span class="tag" style="background:var(--muted)">optional</span></h2>
+  <p class="hint">One full-height pane on the left, two stacked on the right.</p>
+  <ul>
+    <li><label><input type="checkbox"><span><span class="lead">Left pane full height; right two split top/bottom, edges aligned</span></span></label></li>
+  </ul>
+</section>
+
+<section>
+  <h2>5. Quad with one empty slot</h2>
+  <ul>
+    <li><label><input type="checkbox"><span><span class="lead">Three windows in their quadrants</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">The empty slot is a <b>real desktop gap</b> — no blank shell launched there</span></span></label></li>
+  </ul>
+</section>
+
+<section>
+  <h2>6. Flip</h2>
+  <p class="hint">A <code>split</code> or <code>combo</code> workspace with flip on.</p>
+  <ul>
+    <li><label><input type="checkbox"><span><span class="lead">Primary pane lands on the <b>opposite</b> side vs. unflipped</span></span></label></li>
+  </ul>
+</section>
+
+<section>
+  <h2>7. <code>/color</code> paste <span class="tag">key check</span></h2>
+  <p class="hint">Launch with <code>--inject-color</code> (or <code>injectColor</code> true in settings). This is the one path not yet exercised live.</p>
+  <ul>
+    <li><label><input type="checkbox"><span><span class="lead">Each pane's Claude prompt bar takes its color</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">The whole <code>/color &lt;name&gt;</code> lands and submits</span><span class="exp">not a bare <code>/color</code>, a partial, or a wrong command</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">Focus briefly flicks to each window during injection (expected)</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">It lands in the <b>right</b> window each time (no cross-wiring)</span></span></label></li>
+  </ul>
+  <div class="callout"><b>Failure mode (paste-specific):</b> with paste it's all-or-nothing per pane. If <b>nothing</b> appears in a pane, <code>Ctrl+V</code> isn't reaching Claude's TUI (vs. the old typing path's mid-command corruption) — note which pane, and it's a one-function swap back if needed.</div>
+</section>
+
+<section>
+  <h2>8. Clipboard restore</h2>
+  <ul>
+    <li><label><input type="checkbox"><span><span class="lead">Put text on your clipboard <em>before</em> launching</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">After launch, paste somewhere — your original clipboard is back intact</span><span class="exp">the backend borrows the clipboard per pane and restores it</span></span></label></li>
+  </ul>
+</section>
+
+<section>
+  <h2>9. Diagnostics</h2>
+  <pre><code>py -m terminal_launcher logs      # or ~/.config/terminal-launcher/terminal-launcher.log</code></pre>
+  <ul>
+    <li><label><input type="checkbox"><span><span class="lead">No <code>could not foreground</code> warnings</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">No <code>placement failed</code> warnings</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">No <code>could not locate wt window</code> warnings</span></span></label></li>
+  </ul>
+</section>
+
+<section>
+  <h2>Sign-off</h2>
+  <ul>
+    <li><label><input type="checkbox"><span><span class="lead">Placement correct across single / split / combo / quad / flip</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead"><code>/color</code> paste lands reliably in every pane</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead">Clipboard restored intact</span></span></label></li>
+    <li><label><input type="checkbox"><span><span class="lead"><b>Ready to merge <code>windows-terminal-backend</code> → <code>main</code></b> (rebase, bump 1.4.0)</span></span></label></li>
+  </ul>
+</section>
+
+<h2 style="font-size:1.05rem">Notes</h2>
+<textarea id="notes" placeholder="Anything odd — a pane that mis-placed, a /color that didn't land, a log warning…"></textarea>
+
+<footer>Single-format interactive doc (no Markdown twin) — state lives in your browser only. Companion to
+<a href="Build-Packaging-Testing.html">Build, Packaging &amp; Testing</a> and
+<a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.html">ADR 0008</a>.</footer>
+
+<script>
+(function(){
+  var PREFIX = 'tl-wst-';
+  var boxes = Array.prototype.slice.call(document.querySelectorAll('input[type=checkbox]'));
+  boxes.forEach(function(b, i){ b.dataset.k = PREFIX + i; });
+  var fill = document.getElementById('fill'), count = document.getElementById('count');
+
+  function progress(){
+    var done = boxes.filter(function(b){ return b.checked; }).length;
+    count.textContent = done + ' / ' + boxes.length;
+    fill.style.width = boxes.length ? (100 * done / boxes.length) + '%' : '0';
+    boxes.forEach(function(b){
+      var sec = b.closest('section');
+      if(!sec) return;
+      var all = sec.querySelectorAll('input[type=checkbox]');
+      var ok = sec.querySelectorAll('input[type=checkbox]:checked');
+      sec.classList.toggle('done', all.length > 0 && all.length === ok.length);
+    });
+  }
+  boxes.forEach(function(b){
+    try{ b.checked = localStorage.getItem(b.dataset.k) === '1'; }catch(e){}
+    b.addEventListener('change', function(){
+      try{ localStorage.setItem(b.dataset.k, b.checked ? '1' : '0'); }catch(e){}
+      progress();
+    });
+  });
+
+  var notes = document.getElementById('notes');
+  try{ notes.value = localStorage.getItem(PREFIX + 'notes') || ''; }catch(e){}
+  notes.addEventListener('input', function(){ try{ localStorage.setItem(PREFIX + 'notes', notes.value); }catch(e){} });
+
+  document.getElementById('reset').addEventListener('click', function(){
+    if(!confirm('Clear all ticks and notes?')) return;
+    boxes.forEach(function(b){ b.checked = false; try{ localStorage.removeItem(b.dataset.k); }catch(e){} });
+    notes.value = ''; try{ localStorage.removeItem(PREFIX + 'notes'); }catch(e){}
+    progress();
+  });
+
+  progress();
+})();
+</script>
+</main></body></html>

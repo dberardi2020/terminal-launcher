@@ -114,3 +114,8 @@ iTerm2's API does,
 however, make **self-validation by read-back** possible (a launch can be verified via
 the API + `screencapture` with no human), which is a future direction noted in
 [ADR 0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md).
+
+For the Windows backend, an interactive **manual smoke-test checklist** lives at
+[`windows-smoke-test.html`](windows-smoke-test.html) — open it in a browser and tick
+through a real launch (dry-run → single/split/quad/flip → `/color` paste → clipboard
+restore → diag log). It's a single-format interactive page (no Markdown twin).
