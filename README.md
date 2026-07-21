@@ -29,6 +29,20 @@ Terminal windows on Windows).
 Panes and workspaces are *data* (your config); the composer and launcher are the product.
 Ship any pane set you like.
 
+## Demo
+
+Compose a workspace, assign each slot, and launch — all from one window.
+
+**Assign a pane and pick its model.** Click any slot to open the inline editor: choose a
+pane from your library, and optionally override its model just for that slot.
+
+![Assigning a pane and choosing a model in the composer](docs/assets/assign.png)
+
+**Manage your reusable pane library.** Panes are identities you compose workspaces from —
+add, edit, recolor, and retarget them without leaving the window.
+
+![The pane library manager](docs/assets/panes.png)
+
 ## Requirements
 
 - **Python 3.10+** (uses `from __future__ import annotations`; developed on 3.14).
@@ -155,25 +169,6 @@ Full docs live in [`docs/`](docs/README.md):
 - **[Product docs](docs/product/README.md)** — the product, for any stakeholder.
 - **[Technical docs](docs/technical/README.md)** — the code, for developers.
 - **[concept.md](docs/concept.md)** · **[decisions/](docs/decisions/)** — the canonical concept and the architecture decision records.
-
-## Repository layout
-
-```
-bin/terminal-launcher        # executable entry point (symlink onto PATH)
-terminal_launcher/
-  cli.py                     # argparse + interactive composer
-  config.py                  # config load/save/defaults, color map
-  model.py                   # resolve a workspace → concrete slots (platform-agnostic)
-  layouts.py                 # split-plans + capacity (terminal-agnostic; shared)
-  backend.py                 # picks the terminal backend per platform
-  iterm2_backend.py          # macOS terminal layer: iTerm2 Python API
-  windows_terminal_backend.py # Windows terminal layer: `wt` + Win32 (ctypes)
-  gui.py                     # visual composer (pywebview)
-tests/                       # pytest unit tests (layouts, model, config)
-workspaces.example.json      # seed config
-packaging/                   # py2app macOS .app + PyInstaller Windows .exe
-docs/                        # concept + decision records
-```
 
 ## License
 
