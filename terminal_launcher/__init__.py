@@ -5,4 +5,4 @@ iTerm2 on macOS (native windows via its Python API). Other platforms have no
 native backend yet — a Windows Terminal backend is planned.
 """
 
-__version__ = "1.2.0"
+__version__ = "1.3.0"

@@ -3,8 +3,8 @@
     python setup.py py2app        # builds dist/Terminal Launcher.app
 
 `terminal_launcher` is listed under `packages` so py2app copies it unzipped —
-the launcher reads web/builder.html and assets/wezterm-maximize.lua off disk via
-__file__, which only works when the package is a real directory in the bundle.
+the launcher reads web/builder.html off disk via __file__, which only works when
+the package is a real directory in the bundle.
 
 `iterm2` (the macOS terminal backend) is imported lazily inside functions, so
 py2app's static import graph misses it — naming it under `packages` forces it in,
@@ -23,7 +23,7 @@ setup(
             "CFBundleName": "Terminal Launcher",
             "CFBundleDisplayName": "Terminal Launcher",
             "CFBundleIdentifier": "com.dberardi.terminal-launcher",
-            "CFBundleShortVersionString": "1.2.0",
+            "CFBundleShortVersionString": "1.3.0",
             "LSUIElement": False,
             "NSHighResolutionCapable": True,
             # Required so macOS shows the Automation consent prompt (instead of
