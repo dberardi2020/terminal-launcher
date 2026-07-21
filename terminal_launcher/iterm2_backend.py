@@ -254,22 +254,40 @@ def restore_current(color: str, name: str) -> None:
 
     sid = os.environ.get("ITERM_SESSION_ID", "")
     uuid = sid.split(":", 1)[1] if ":" in sid else sid
+    failure: list[BaseException] = []
 
     async def _main(connection):
-        app = await iterm2.async_get_app(connection)
-        session = app.get_session_by_id(uuid)
-        if session is None:
-            raise RuntimeError(f"could not resolve current iTerm2 session {uuid!r}")
-        # text then a lone CR, as separate sends — a single "/cmd x\r" types but
-        # doesn't submit in Claude's TUI (same rule as launch-time injection).
-        await session.async_send_text(f"/color {color}"); await asyncio.sleep(0.25)
-        await session.async_send_text("\r");              await asyncio.sleep(0.15)
-        await session.async_send_text(f"/rename {name}"); await asyncio.sleep(0.25)
-        await session.async_send_text("\r")
+        # Catch here rather than letting it escape: the iterm2 runner "catches and
+        # prints" anything that leaves the coroutine, so a raise would surface as a
+        # raw traceback and a bare exit(1) — bypassing cmd_restore's ERROR branch and
+        # telling the user nothing useful. Stash it and re-raise on our own terms.
+        try:
+            app = await iterm2.async_get_app(connection)
+            session = app.get_session_by_id(uuid)
+            if session is None:
+                raise RuntimeError(
+                    f"could not resolve this iTerm2 session ({uuid or 'no ITERM_SESSION_ID'}) — "
+                    "is this pane running under iTerm2?")
+            # text then a lone CR, as separate sends — a single "/cmd x\r" types but
+            # doesn't submit in Claude's TUI (same rule as launch-time injection).
+            await session.async_send_text(f"/color {color}"); await asyncio.sleep(0.25)
+            await session.async_send_text("\r");              await asyncio.sleep(0.15)
+            await session.async_send_text(f"/rename {name}"); await asyncio.sleep(0.25)
+            await session.async_send_text("\r")
+        except Exception as e:  # noqa: BLE001 — re-raised below, outside the runner
+            failure.append(e)
 
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    iterm2.run_until_complete(_main, retry=False)  # retry=False: its retry loops forever on auth denial
+    try:
+        iterm2.run_until_complete(_main, retry=False)  # retry=False: its retry loops forever on auth denial
+    except SystemExit as e:  # the lib calls sys.exit() when it can't reach the API
+        raise RuntimeError(
+            "could not connect to iTerm2's Python API — check that iTerm2 is running "
+            "and that Automation permission is granted "
+            "(System Settings › Privacy & Security › Automation).") from e
+    if failure:
+        raise RuntimeError(str(failure[0])) from failure[0]
 
 
 _SHELL_NAMES = {"-zsh", "zsh", "-bash", "bash", "login", "-fish", "fish", "sh", "-sh"}
