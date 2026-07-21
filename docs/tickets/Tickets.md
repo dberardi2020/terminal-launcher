@@ -17,6 +17,8 @@ _(none)_
 | TLA-0007 | Bug | P2 | ux | [Panes list overflows on long paths: wrapped entries (Private KB, Email HQ) push their edit/delete icons out of the shared right-aligned column, past the panel edge](TLA-0007/) |
 | TLA-0010 | Chore | P2 | packaging | Streamline pushing updates to the installed Dock app so code changes don't need a full py2app rebuild + reinstall each time — evaluate py2app **alias mode** (`python setup.py py2app -A`), a symlinked package, or launching the GUI from source. |
 | TLA-0012 | Feature | P2 | packaging | Design the **install/setup** flow and the **maintenance/update** flow for going live as an ongoing project — first-run setup (deps, iTerm2, Automation grant, config seed) + a repeatable release/update path (version bump, rebuild, swap). The umbrella over the narrower dev-loop fix in TLA-0010. |
+| TLA-0013 | Feature | P2 | backend | **Multi-monitor placement:** slot rects derive from the *primary* monitor's work area only (`SPI_GETWORKAREA` on Windows, main display on macOS), so a workspace always lands on the primary display. Add per-monitor targeting — relevant now that the PC is a multi-display setup. |
+| TLA-0014 | Feature | P3 | ux | **Revisit Windows Terminal tab tinting:** `--tabColor <pane hex>` was implemented then dropped ([ADR 0008](../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md)) — the composer's swatch hexes don't read well against wt's own theming. Needs a palette tuned for `wt`, not a reuse of the pane colours. |
 
 ## Blocked
 

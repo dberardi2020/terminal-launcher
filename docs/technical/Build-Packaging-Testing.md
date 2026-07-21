@@ -42,7 +42,7 @@ maximized (via `app_main.py` → `gui.run()`); a fleeting launch exits the app b
 | Key | Value | Why |
 |---|---|---|
 | `CFBundleIdentifier` | `com.dberardi.terminal-launcher` | Bundle identity. |
-| `CFBundleShortVersionString` | `1.2.0` | Mirrors `__version__`. |
+| `CFBundleShortVersionString` | `1.4.0` | Mirrors `__version__`. |
 | `LSUIElement` | `False` | A normal Dock app with a window, not a background agent. |
 | `NSHighResolutionCapable` | `True` | Retina. |
 | `NSAppleEventsUsageDescription` | *(consent string)* | **Required** so macOS shows the Automation prompt — iTerm2's API obtains its auth cookie via an Apple Event; without this key macOS silently denies it. |

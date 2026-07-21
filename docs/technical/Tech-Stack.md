@@ -7,7 +7,7 @@ doesn't depend on it.
 ## Language & runtime
 
 - **Python 3.10+** — uses `from __future__ import annotations`; developed on 3.14.
-- **Version** — `terminal_launcher.__version__ = "1.2.0"` (`__init__.py`), mirrored in
+- **Version** — `terminal_launcher.__version__ = "1.4.0"` (`__init__.py`), mirrored in
   the py2app plist `CFBundleShortVersionString`.
 
 ## Dependencies (`requirements.txt`)

@@ -143,7 +143,7 @@ window.pywebview.api` is the single bridge accessor. JS errors (`window.onerror`
 | `bin/terminal-launcher` | shell | Executable symlinked onto `PATH`. |
 | `__main__.py` | CLI | `python -m terminal_launcher` → `cli.main()`. |
 | `app_main.py` | `.app` | The py2app entry — `run()` straight into the GUI, bypassing argparse. |
-| `__init__.py` | — | Package docstring + `__version__ = "1.2.0"`. |
+| `__init__.py` | — | Package docstring + `__version__ = "1.4.0"`. |
 
 ---
 

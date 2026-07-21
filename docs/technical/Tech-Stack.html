@@ -27,7 +27,7 @@ strong{font-weight:650}
 <h1>Tech Stack</h1>
 <p>A deliberately small stack. The core is <strong>stdlib-only</strong>; every third-party dependency buys exactly one capability and is isolated behind a seam so the rest of the code doesn't depend on it.</p>
 <h2>Language &amp; runtime</h2>
-<ul><li><strong>Python 3.10+</strong> — uses <code>from __future__ import annotations</code>; developed on 3.14.</li><li><strong>Version</strong> — <code>terminal_launcher.__version__ = "1.2.0"</code> (<code>__init__.py</code>), mirrored in the py2app plist <code>CFBundleShortVersionString</code>.</li></ul>
+<ul><li><strong>Python 3.10+</strong> — uses <code>from __future__ import annotations</code>; developed on 3.14.</li><li><strong>Version</strong> — <code>terminal_launcher.__version__ = "1.4.0"</code> (<code>__init__.py</code>), mirrored in the py2app plist <code>CFBundleShortVersionString</code>.</li></ul>
 <h2>Dependencies (<code>requirements.txt</code>)</h2>
 <table><thead><tr><th>Package</th><th>Version</th><th>Buys</th><th>Needed for</th></tr></thead><tbody><tr><td><code>pywebview</code></td><td><code>&gt;=6.2</code></td><td>A native window hosting local HTML/JS, bridged to Python</td><td>The visual composer (<code>gui.py</code>)</td></tr><tr><td><code>iterm2</code></td><td><code>&gt;=2.7</code></td><td>The iTerm2 Python API (async)</td><td>The macOS terminal backend</td></tr></tbody></table>
 <p>Everything else is the <strong>standard library</strong>: <code>argparse</code>, <code>json</code>, <code>pathlib</code>, <code>subprocess</code>, <code>asyncio</code>, <code>ctypes</code>, <code>logging</code>, <code>shutil</code>, <code>shlex</code>, <code>platform</code>, <code>functools</code>.</p>
