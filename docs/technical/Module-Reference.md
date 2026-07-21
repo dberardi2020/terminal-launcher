@@ -89,6 +89,10 @@ backend seam — the same split the launcher uses.
   `name()` and `install_hint()`.
 - `restore_identity(color, name)` — routes to the active backend's `restore_current`
   (re-inject identity into the *current* session); the seam behind the `restore` verb.
+- `scrub_bundled_python_env()` — pops `PYTHONHOME`/`PYTHONPATH`, which the py2app bundle
+  points at its own `Contents/Resources`. A cold start launches iTerm2 itself, so without
+  this every pane inherits them and any `python` in a pane resolves the *bundle's* stdlib.
+  Called at both entry points (`cli.main`, `gui.run`) before anything spawns.
 
 ### `iterm2_backend.py` · `windows_terminal_backend.py`
 The two native terminal backends behind the contract — full treatment in

@@ -141,6 +141,13 @@ separate Enter. Paste is preferred over per-character typing precisely because i
 events, not one per letter; the clipboard is saved/restored around it. See
 [ADR 0002](../decisions/0002-identity-injection.md).
 
+**A clean interpreter environment.** Each pane's command is prefixed with
+`/usr/bin/env -u PYTHONHOME -u PYTHONPATH`. The py2app bundle sets both at its own
+`Contents/Resources`, and a cold start launches iTerm2 *from the bundle*, so every session
+would otherwise inherit them and any `python` in a pane would resolve the bundle's stdlib.
+`backend.scrub_bundled_python_env()` handles the cold-start case at the entry points; the
+per-command prefix additionally covers an iTerm2 that was already running polluted.
+
 **Re-injection (`restore_current`).** `restore` reuses exactly these delivery paths, but aimed
 at the session the command runs *in* rather than one just spawned — iTerm2 by `ITERM_SESSION_ID`,
 Windows Terminal by the foreground `wt` window (Windows shares the launch-time `_paste_command`

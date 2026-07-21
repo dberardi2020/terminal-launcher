@@ -17,8 +17,32 @@ touched lazily inside each backend, never at import time.
 """
 from __future__ import annotations
 
+import os
+
 from . import iterm2_backend
 from . import windows_terminal_backend
+
+# Variables the py2app bundle sets for its own embedded interpreter, which must not
+# reach anything we spawn.
+_BUNDLED_PYTHON_VARS = ("PYTHONHOME", "PYTHONPATH")
+
+
+def scrub_bundled_python_env() -> None:
+    """Drop `PYTHONHOME`/`PYTHONPATH` so spawned terminals never inherit them.
+
+    The py2app bundle points both at its own `Contents/Resources` for its embedded
+    interpreter. Everything the app spawns inherits that — and because a cold start
+    launches iTerm2 itself (`open -a iTerm`), *every pane* iTerm2 then creates
+    inherits it too. The effect is that any unrelated `python` run inside a launched
+    pane resolves the **bundle's** stdlib and site-packages instead of its own: a
+    `pipx`-installed `terminal-launcher` silently runs the bundle's stale copy.
+
+    Clearing them here is safe. The running interpreter resolved its own paths at
+    startup and doesn't re-read these; only child processes are affected — which is
+    precisely the point. Call once at every entry point, before anything spawns.
+    """
+    for var in _BUNDLED_PYTHON_VARS:
+        os.environ.pop(var, None)
 
 
 def _impl():

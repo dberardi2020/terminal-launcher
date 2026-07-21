@@ -393,6 +393,9 @@ def run(path: Path | None = None) -> int:
     import webview  # lazy import so the CLI doesn't hard-depend on the GUI stack
 
     diag.setup()
+    # Order matters: scrub before anything spawns. A cold start launches iTerm2
+    # itself, so the bundle's PYTHONHOME/PYTHONPATH would otherwise reach every pane.
+    backend.scrub_bundled_python_env()
     _inherit_login_path()  # Dock-launched apps get a stripped PATH — restore it first
     path = path or cfg.default_config_path()
     if not path.exists():

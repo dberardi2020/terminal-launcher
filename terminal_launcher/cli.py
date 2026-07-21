@@ -430,6 +430,9 @@ def _force_utf8_stdio() -> None:
 
 def main(argv: list[str] | None = None) -> int:
     _force_utf8_stdio()
+    # Breaks the inheritance chain: a pane launched by the bundle is already polluted,
+    # so a launch run from *inside* one would pass it on to the next generation.
+    backend.scrub_bundled_python_env()
     ap = build_parser()
     args = ap.parse_args(argv)
     path = Path(args.config).expanduser() if args.config else cfg.default_config_path()

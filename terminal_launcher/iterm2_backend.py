@@ -105,11 +105,20 @@ def _claude() -> str:
 
 
 def _command(slot: ResolvedSlot) -> str | None:
-    """Custom command for a slot, or None for an empty (default-shell) slot."""
+    """Custom command for a slot, or None for an empty (default-shell) slot.
+
+    Prefixed with `env -u PYTHONHOME -u PYTHONPATH`. Scrubbing at the entry points
+    (`backend.scrub_bundled_python_env`) fixes the *cold*-start case, but an iTerm2
+    that was already launched by the bundle still carries those vars, and every
+    session it spawns inherits them. Scrubbing per-command covers that too, so the
+    pane — and anything Claude runs inside it — gets a clean interpreter environment
+    rather than the bundle's stdlib.
+    """
     if slot.empty:
         return None
     parts = [_claude(), "-n", slot.name, "--model", slot.model]
-    return " ".join(shlex.quote(p) for p in parts)
+    cmd = " ".join(shlex.quote(p) for p in parts)
+    return "/usr/bin/env -u PYTHONHOME -u PYTHONPATH " + cmd
 
 
 def _cwd(slot: ResolvedSlot) -> str:
