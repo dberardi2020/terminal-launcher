@@ -40,6 +40,8 @@ def _inherit_login_path() -> None:
     Homebrew/user bin dirs so the bundled .app behaves like a terminal launch. Safe to
     call when already run from a terminal — the merge is idempotent.
     """
+    if os.name == "nt":
+        return  # Windows: no login-shell PATH dance — wt/claude resolve normally
     dirs: list[str] = []
     shell = os.environ.get("SHELL", "/bin/zsh")
     try:
