@@ -111,4 +111,4 @@ tighter one (that was the removed WezTerm path; see
 Capacity is declared twice: `config.LAYOUT_CAPACITY` and `layouts.CAPACITY` (derived
 from `SPLIT_PLAN` lengths). They must never drift — `tests/test_config.py` asserts
 `LAYOUT_CAPACITY == CAPACITY` exactly to guard it. See
-[Build, Packaging & Testing](Build-Packaging-Testing.md).
+[Build, Packaging & Testing](build-packaging-testing.md).

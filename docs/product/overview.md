@@ -49,9 +49,9 @@ what lets one install serve any workflow.
 - People who want a **saved, one-command** way back into a familiar multi-terminal
   setup instead of rebuilding it each session.
 - macOS (verified end-to-end on iTerm2) and Windows (native Windows Terminal backend) —
-  see [Platforms & Status](Platforms-and-Status.md).
+  see [Platforms & Status](platforms-and-status.md).
 
 ## Next
 
-- The vocabulary behind all of this → [Concepts](Concepts.md).
-- Getting it running and composing your first workspace → [User Guide](User-Guide.md).
+- The vocabulary behind all of this → [Concepts](concepts.md).
+- Getting it running and composing your first workspace → [User Guide](user-guide.md).

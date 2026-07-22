@@ -7,12 +7,12 @@ Documentation for **developers** working on the code. Assumes you've skimmed the
 
 | Doc | Read it for |
 |---|---|
-| [Architecture](Architecture.md) | The layered design and the end-to-end flow from `launch Docs` to tiled windows. |
-| [Tech Stack](Tech-Stack.md) | The dependencies — stdlib core, pywebview, iterm2 API, `wt` + Win32, py2app/PyInstaller, pytest — and *why* each. |
-| [Module Reference](Module-Reference.md) | Every module: responsibility, key functions, cross-calls. |
-| [Backends](Backends.md) | The terminal-backend abstraction — the heart of the system. |
-| [Data Model & Config](Data-Model-and-Config.md) | The `workspaces.json` schema, resolution order, and model precedence. |
-| [Build, Packaging & Testing](Build-Packaging-Testing.md) | The py2app `.app` and PyInstaller `.exe` bundles, asset loading, entitlements, and the test suite. |
+| [Architecture](architecture.md) | The layered design and the end-to-end flow from `launch Docs` to tiled windows. |
+| [Tech Stack](tech-stack.md) | The dependencies — stdlib core, pywebview, iterm2 API, `wt` + Win32, py2app/PyInstaller, pytest — and *why* each. |
+| [Module Reference](module-reference.md) | Every module: responsibility, key functions, cross-calls. |
+| [Backends](backends.md) | The terminal-backend abstraction — the heart of the system. |
+| [Data Model & Config](data-model-and-config.md) | The `workspaces.json` schema, resolution order, and model precedence. |
+| [Build, Packaging & Testing](build-packaging-testing.md) | The py2app `.app` and PyInstaller `.exe` bundles, asset loading, entitlements, and the test suite. |
 
 ## The shape, at a glance
 
@@ -36,17 +36,17 @@ terminal_launcher/
   diag.py                      # rotating log shared by CLI + GUI + backends
 tests/                         # pytest: layouts, model, config
 packaging/                     # py2app macOS .app + PyInstaller Windows .exe
-docs/                          # this suite + concept.md + decisions/ (ADRs)
+docs/                          # this suite + decisions/ (ADRs)
 ```
 
 ## The two invariants worth knowing first
 
 - **The config is a dumb JSON dict.** There's no ORM or model object for panes and
   workspaces — every mutation in both front-ends is "change the plain dict, then
-  `config.save(path, config)`". See [Data Model & Config](Data-Model-and-Config.md).
+  `config.save(path, config)`". See [Data Model & Config](data-model-and-config.md).
 - **Neither front-end knows which terminal it's driving.** They call
   `backend.launch(...)`; the platform split (iTerm2 vs Windows Terminal) lives entirely
-  behind that seam. See [Backends](Backends.md).
+  behind that seam. See [Backends](backends.md).
 
 ## Deeper references
 
@@ -54,4 +54,5 @@ docs/                          # this suite + concept.md + decisions/ (ADRs)
   [0001](../decisions/0001-terminal-layer-and-core.md) and
   [0007](../decisions/0007-iterm2-backend-and-real-gap-layouts.md), and
   [0008](../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md)).
-- [`../concept.md`](../concept.md) — the as-built product concept.
+- [`../product/concepts.md`](../product/concepts.md) — the concept model (Pane · Layout ·
+  Workspace · Composer · Actions).

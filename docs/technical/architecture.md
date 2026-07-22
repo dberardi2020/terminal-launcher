@@ -41,7 +41,7 @@ window math; the backends never touch the config.
 Every backend satisfies the **same three-function contract** — `available()`,
 `describe()`, `launch()` — so the layers above are backend-blind. Both realize one
 uniform model: **one real OS window per pane, placed by geometry, with real desktop gaps
-for empty slots.** Details in [Backends](Backends.md).
+for empty slots.** Details in [Backends](backends.md).
 
 ## End-to-end: what `launch Docs` does
 
@@ -67,7 +67,7 @@ for empty slots.** Details in [Backends](Backends.md).
      Win32 rect (with DPI + DWM-border compensation).
 6. **Apply identity.** Each window's title/name is set and — if `inject_color` — `/color
    <name>` is delivered (iTerm2: `send-text`; Windows Terminal: focus + clipboard paste; see
-   [Backends](Backends.md)).
+   [Backends](backends.md)).
 7. **Log throughout.** Every step, and any uncaught exception or forwarded WebView JS
    error, lands in the single `diag.py` rotating log.
 

@@ -17,8 +17,8 @@ dist/
 *.app
 
 # Ticket screenshot staging inbox (promote keepers into docs/tickets/TLA-NNNN/Screenshots/)
-docs/tickets/Screenshots/*
-!docs/tickets/Screenshots/README.md
+docs/tickets/screenshots/*
+!docs/tickets/screenshots/README.md
 
 # setuptools build metadata (pip/pipx builds)
 *.egg-info/

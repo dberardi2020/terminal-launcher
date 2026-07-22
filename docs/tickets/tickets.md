@@ -27,6 +27,7 @@ _(none)_
 | TLA-0022 | Chore | P3 | packaging | **Drop `bin/terminal-launcher`:** now that `pyproject.toml` ships a `console_scripts` entry point (and `python -m terminal_launcher` covers the checkout case), the `bin/` shim is redundant. **Blocked on** the `/restore` installers, which currently invoke it — move them to the installed `terminal-launcher` (with a `python -m` fallback for checkout-only users), then delete `bin/` and its doc references. |
 | TLA-0023 | Chore | P2 | quality | [**Audit error handling, reporting & logging**](TLA-0023/TLA-0023.md) — one ticket because both halves sweep the same call sites. Prompted by two "failure looked like success" defects in `/restore` (both now fixed). Covers failure propagation and the `DETECTED`/`RESTORED`/`UNKNOWN`/`ERROR` contract, the unwritten lenient-vs-strict rule, the stderr banner on every CLI run, verbosity control, double-reporting, and `restore.py`'s missing detect-path logging. |
 | TLA-0024 | Chore | P3 | tooling | **Move the ticket board to GitHub Projects.** An in-repo MD+HTML board fit a private solo repo; a public one gets Issues/Projects for free — cross-links to commits and PRs, and no lockstep render to maintain. Needs a call on what migrates (Open rows, the Done history, `TLA-NNNN/` folders and their screenshots) and whether the `TLA-NNNN` IDs survive as labels. |
+| TLA-0025 | Bug | P2 | packaging | **First launch fires 10+ permission prompts.** Opening the installed `.app` throws a wall of macOS consent dialogs at the user — enough that it reads as broken/untrustworthy on first run. Needs an audit of *which* grants are actually being requested and by whom (Automation → iTerm2 for the Python API's AppleScript auth cookie, `open -a iTerm`, plus whatever each pane's `cwd` trips: Documents/Desktop/Downloads/iCloud), then a cut down to the minimum set, ideally requested lazily at the point of use rather than all at open. Related: **TLA-0003** (unsigned bundle re-prompts after every rebuild, which inflates how often this is hit) and **TLA-0012** (first-run setup flow — the right place to explain/sequence the grants that genuinely are required). |
 
 ## Blocked
 
@@ -62,9 +63,9 @@ _(none)_
   title to it. Rationale, investigation notes, current-state inventories, and
   option-weighing all belong in the file, not the table. A board you have to scroll
   sideways to read has stopped being a board. **Done** rows are exempt — there the row
-  *is* the record of what shipped, and it's on its way to `Archive/` anyway.
+  *is* the record of what shipped, and it's on its way to `archive/` anyway.
 - **Screenshots:** fresh captures (e.g. from `/db-screenshot`) stage in the gitignored
-  `Screenshots/` inbox; promote keepers into the ticket's own `TLA-NNNN/Screenshots/`.
+  `screenshots/` inbox; promote keepers into the ticket's own `TLA-NNNN/Screenshots/`.
 - **Archiving:** closed items drop to **Done** above. When **Done** gets long, move rows
-  to `Archive/Tickets.md`; a closed ticket that had a folder moves to `Archive/TLA-NNNN/`.
-- Regenerate the HTML view after editing: `python docs/render.py docs/tickets/Tickets.md`.
+  to `archive/tickets.md`; a closed ticket that had a folder moves to `archive/TLA-NNNN/`.
+- Regenerate the HTML view after editing: `python docs/render.py docs/tickets/tickets.md`.

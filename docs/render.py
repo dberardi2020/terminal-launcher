@@ -5,9 +5,9 @@ The docs follow a MD + HTML lock-step convention: the `.md` is the source of
 truth, the `.html` is a styled human-review render of the same content. This is
 the tool that produces the render — run it after editing any paired `.md`:
 
-    python docs/render.py docs/concept.md
+    python docs/render.py docs/product/concepts.md
     python docs/render.py docs/decisions/*.md
-    python docs/render.py docs/tickets/Tickets.md
+    python docs/render.py docs/tickets/tickets.md
 
 Each `name.md` is written next to it as `name.html`, wrapped in a shared,
 theme-aware CSS template (light/dark via prefers-color-scheme).

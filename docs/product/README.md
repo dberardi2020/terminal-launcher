@@ -9,10 +9,10 @@ product — what it is, what it's for, and how to use it. No code knowledge assu
 
 | Doc | Read it for |
 |---|---|
-| [Overview](Overview.md) | The one-paragraph pitch: the problem, the solution, and who it's for. |
-| [Concepts](Concepts.md) | The five words that make up the whole model — Pane, Layout, Workspace, Composer, Actions. |
-| [User Guide](User-Guide.md) | Getting it installed and composing + launching your first workspace, both from the terminal and the visual composer. |
-| [Platforms & Status](Platforms-and-Status.md) | What you need to run it, which platforms are verified, and what's still deferred. |
+| [Overview](overview.md) | The one-paragraph pitch: the problem, the solution, and who it's for. |
+| [Concepts](concepts.md) | The five words that make up the whole model — Pane, Layout, Workspace, Composer, Actions. |
+| [User Guide](user-guide.md) | Getting it installed and composing + launching your first workspace, both from the terminal and the visual composer. |
+| [Platforms & Status](platforms-and-status.md) | What you need to run it, which platforms are verified, and what's still deferred. |
 
 ## In one sentence
 
@@ -23,8 +23,8 @@ product — what it is, what it's for, and how to use it. No code knowledge assu
 
 ## Deeper references
 
-These product docs synthesize two canonical sources kept alongside the code; reach
-for them when you want the primary material:
+These product docs are the reader-facing suite. [`Concepts`](concepts.md) is the single
+source for the concept model — nothing else restates it. For the primary material behind
+it:
 
-- [`concept.md`](../concept.md) — the as-built concept (what the product *is*).
 - [`decisions/`](../decisions/) — the Architecture Decision Records (*why* it's built the way it is).

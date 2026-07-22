@@ -185,7 +185,7 @@ Then, in any launched pane, run `/restore` after a `/clear` — it's the package
 - **Windows** — verified end-to-end on the native Windows Terminal backend: geometry, window
   discovery, placement, and `/color` injection. Multi-monitor is not done yet (primary
   monitor only). See
-  [`docs/product/Platforms-and-Status.md`](docs/product/Platforms-and-Status.md).
+  [`docs/product/platforms-and-status.md`](docs/product/platforms-and-status.md).
 
 ## The UI
 
@@ -202,7 +202,7 @@ Full docs live in [`docs/`](docs/README.md):
 
 - [Product docs](docs/product/README.md) — the product, for any stakeholder.
 - [Technical docs](docs/technical/README.md) — the code, for developers.
-- [concept.md](docs/concept.md) · [decisions/](docs/decisions/) — the canonical concept and the architecture decision records.
+- [product/concepts.md](docs/product/concepts.md) · [decisions/](docs/decisions/) — the concept model and the architecture decision records.
 
 ## License
 

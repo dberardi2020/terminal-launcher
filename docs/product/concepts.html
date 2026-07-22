@@ -36,7 +36,7 @@ strong{font-weight:650}
 <p><strong>Split</strong> and <strong>Combo</strong> can be <strong>flipped</strong> horizontally — which side the main pane takes — and the flip is saved per workspace. (Single has nothing to mirror; Quad is already symmetric.)</p>
 <h2>Workspace</h2>
 <p>A <strong>workspace</strong> is a named, saved <strong>composition</strong>: a layout plus a specific pane assigned to each slot. Workspaces are the everyday entry point — you pick one and launch.</p>
-<p>A slot may be left <strong>intentionally empty</strong>. On launch an empty slot is <em>dropped</em>, not run as a blank shell — so a three-of-four-filled quad launches as three real panes, never one dead rectangle. (Exactly <em>how</em> the gap is handled differs by backend; see <a href="Platforms-and-Status.md">Platforms &amp; Status</a>.)</p>
+<p>A slot may be left <strong>intentionally empty</strong>. On launch an empty slot is <em>dropped</em>, not run as a blank shell — so a three-of-four-filled quad launches as three real panes, never one dead rectangle. (Exactly <em>how</em> the gap is handled differs by backend; see <a href="platforms-and-status.md">Platforms &amp; Status</a>.)</p>
 <h2>Composer</h2>
 <p>The <strong>composer</strong> is the interactive builder: choose a layout, then assign a pane and a model to each slot. It comes in two forms over the <strong>same</strong> config:</p>
 <ul><li><strong>CLI</strong> (<code>new</code> / <code>edit</code>) — headless and scriptable, prompt-driven in the terminal.</li><li><strong>Visual composer</strong> (<code>terminal-launcher gui</code>) — a native window. A launchpad of workspace cards sits on top; below is a live composer where you pick a layout and <strong>click a slot to fill it</strong>. The slot editor is an inline side panel (headed <em>“Editing &amp;lt;position&amp;gt;”</em>) with a <strong>click-to-fill</strong> pane list and <strong>model chips</strong> (including a <strong>Default</strong> that uses the pane's own model). Panes are created and edited inline in that same panel — no separate screen.</li></ul>
@@ -48,5 +48,5 @@ strong{font-weight:650}
 <h2>The genericness principle</h2>
 <p>Panes and workspaces are <strong>data</strong> — your configuration. The composer and launcher are the <strong>product</strong>. Ship any pane set you like; nothing about the tool assumes a particular one.</p>
 <hr>
-<p><em>Primary source for this model: <a href="../concept.md"><code>concept.md</code></a>.</em></p>
+<p><em>This is the single source for the concept model. The decisions behind it live in <a href="../decisions/"><code>decisions/</code></a>; how it's realized in code is <a href="../technical/architecture.md"><code>technical/architecture.md</code></a>.</em></p>
 </main></body></html>

@@ -10,7 +10,7 @@ From nothing to a tiled, one-command Claude Code workspace.
   - **Windows → [Windows Terminal](https://aka.ms/terminal)** — `winget install Microsoft.WindowsTerminal`.
 - **Claude Code** (`claude`) on your `PATH` — what each filled pane runs.
 
-See [Platforms & Status](Platforms-and-Status.md) for details and permissions.
+See [Platforms & Status](platforms-and-status.md) for details and permissions.
 
 ## 2. Install
 
@@ -39,7 +39,21 @@ single source of truth for your panes, workspaces, and settings.
 
 ## 4. Compose a workspace
 
-You have two equivalent ways to build one. Both read and write the same config.
+### The three paths
+
+Everything you do with Terminal Launcher is one of three:
+
+| Path | Command | What happens |
+|---|---|---|
+| **Fast** | `terminal-launcher launch Docs` | The saved arrangement opens. The everyday case. |
+| **Compose** | `terminal-launcher new` | Pick a layout → assign each slot → it saves, then previews. |
+| **Tweak** | `terminal-launcher edit Docs` | Reassign a slot or change the layout → it persists. |
+
+The rest of this section is the compose and tweak paths; [§5](#5-launch) is the fast one.
+
+### Two ways to build
+
+You have two equivalent ways to compose. Both read and write the same config.
 
 ### The terminal (scriptable)
 
@@ -132,4 +146,4 @@ The config resolves in this order:
 default** (`settings.defaultModel`). Colors come from a named set (blue, orange, red,
 purple, green, cyan, pink, gray). For the full JSON shape, see
 [`workspaces.example.json`](../../workspaces.example.json), and for the field-by-field
-schema, the Technical [Data Model & Config](../technical/Data-Model-and-Config.md) doc.
+schema, the Technical [Data Model & Config](../technical/data-model-and-config.md) doc.

@@ -44,7 +44,7 @@ launch.
 A slot may be left **intentionally empty**. On launch an empty slot is *dropped*, not
 run as a blank shell — so a three-of-four-filled quad launches as three real panes,
 never one dead rectangle. (Exactly *how* the gap is handled differs by backend; see
-[Platforms & Status](Platforms-and-Status.md).)
+[Platforms & Status](platforms-and-status.md).)
 
 ## Composer
 
@@ -87,4 +87,6 @@ particular one.
 
 ---
 
-*Primary source for this model: [`concept.md`](../concept.md).*
+*This is the single source for the concept model. The decisions behind it live in
+[`decisions/`](../decisions/); how it's realized in code is
+[`technical/architecture.md`](../technical/architecture.md).*

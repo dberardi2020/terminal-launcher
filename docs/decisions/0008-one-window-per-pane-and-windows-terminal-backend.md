@@ -51,5 +51,5 @@ Both backends place their *own* windows at computed rectangles — iTerm2 via `a
 
 - **Import safety.** `backend.py` imports both native backends on every platform; each defers its heavy OS dependency (the `iterm2` lib; `ctypes.windll` / `WINFUNCTYPE`) to platform-only code paths, never at import time.
 - **`layouts.py` split-plans** (`plan()` / `SPLIT_PLAN`) are now used only to derive `CAPACITY` and by the unit tests — the native backends need slot *rectangles*, not split directions. The duplicated split-plan in `wezterm.py` is gone with the file.
-- **Packaging.** macOS keeps py2app; Windows gets a PyInstaller spec (plus a zero-bundle `pythonw -m terminal_launcher gui` shim). See [Build, Packaging & Testing](../technical/Build-Packaging-Testing.md).
+- **Packaging.** macOS keeps py2app; Windows gets a PyInstaller spec (plus a zero-bundle `pythonw -m terminal_launcher gui` shim). See [Build, Packaging & Testing](../technical/build-packaging-testing.md).
 - **What's verified.** On Windows: geometry, window discovery, placement, DWM compensation, and the clipboard round-trip are live-tested (the visible frame lands pixel-exact). The `claude` spawn + `/color` paste-into-the-TUI path is written to the proven pattern but awaits a real-session smoke test.

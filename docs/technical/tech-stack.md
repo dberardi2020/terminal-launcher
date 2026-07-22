@@ -38,7 +38,7 @@ long-running localhost server contradicts that, and heavier native toolkits
 (SwiftUI/Avalonia/Tauri) would mean a UI rewrite or a new build toolchain. pywebview
 reuses the existing HTML UI and the Python core with no new language. See
 [ADR 0003](../decisions/0003-visual-composer-pywebview.md). The bridge is detailed in
-[Module Reference](Module-Reference.md#guipy).
+[Module Reference](module-reference.md#guipy).
 
 ### iterm2 — the macOS terminal backend
 
@@ -74,7 +74,7 @@ Not a dependency of the tool, but what every filled pane runs:
 
 - **py2app** — builds the macOS Dock `.app` (`setup.py`). Dev/packaging only.
 - **PyInstaller** — builds the Windows `.exe` (`packaging/windows/`). Dev/packaging only.
-  See [Build, Packaging & Testing](Build-Packaging-Testing.md).
+  See [Build, Packaging & Testing](build-packaging-testing.md).
 - **pytest** — unit tests for the pure core (`layouts`, `model`, `config`). No terminal
   or GUI is exercised in tests.
 - **docs render** — `docs/render.py` (stdlib-only) renders the Markdown docs to their

@@ -1,7 +1,7 @@
 # Module Reference
 
 A map of every module: what it owns, its key surface, and how it connects. Deep dives
-live in [Backends](Backends.md) and [Data Model & Config](Data-Model-and-Config.md);
+live in [Backends](backends.md) and [Data Model & Config](data-model-and-config.md);
 this is the index.
 
 Dependency direction: **front-ends → core → backend seam → backends**, with `diag`
@@ -25,7 +25,7 @@ underneath everything.
 - `color_hex(name)` — named color → hex, default gray `#8a8a9a`.
 - **Constants:** `COLORS` (8 named→hex), `LAYOUT_CAPACITY` `{single:1, split:2,
   combo:3, quad:4}`, `DEFAULT_CONFIG`. Full schema in
-  [Data Model & Config](Data-Model-and-Config.md).
+  [Data Model & Config](data-model-and-config.md).
 
 *Imports:* stdlib only. *Consumed by:* both front-ends, `model.py`.
 
@@ -96,7 +96,7 @@ backend seam — the same split the launcher uses.
 
 ### `iterm2_backend.py` · `windows_terminal_backend.py`
 The two native terminal backends behind the contract — full treatment in
-[Backends](Backends.md). Both realize the **same** model: one OS window per filled slot
+[Backends](backends.md). Both realize the **same** model: one OS window per filled slot
 placed at its rect, with real desktop gaps for empties (no compaction). In brief:
 
 - **`iterm2_backend.py`** — async, drives the iTerm2 Python API on its own event loop; a
