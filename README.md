@@ -202,7 +202,6 @@ Shipped and stable on macOS (iTerm2) and Windows (Windows Terminal). What's defe
 
 - **Multi-monitor placement** — slots derive from the primary display's work area, so a workspace always lands there.
 - **Heterogeneous panes** — tiling a browser or file manager alongside the Claude terminals; needs a general OS-window placement layer.
-- **Directory-owned identity** — letting a pane's identity travel with its repo rather than live only in this config.
 
 Full detail and rationale in [Platforms & Status](docs/product/platforms-and-status.md#deferred--not-yet-built).
 
