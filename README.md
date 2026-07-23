@@ -210,9 +210,9 @@ Full detail and rationale in [Platforms & Status](docs/product/platforms-and-sta
 
 Full docs live in [`docs/`](docs/README.md):
 
-- [Product docs](docs/product/README.md) — the product, for any stakeholder.
-- [Technical docs](docs/technical/README.md) — the code, for developers.
-- [product/concepts.md](docs/product/concepts.md) · [decisions/](docs/decisions/) — the concept model and the architecture decision records.
+- **[Product](docs/product/README.md)** — what it is and how to use it, no code assumed.
+- **[Technical](docs/technical/README.md)** — architecture, backends, data model, packaging.
+- **[Decisions](docs/decisions/README.md)** — the architecture decision records (*why* it's built this way).
 
 ## License
 
