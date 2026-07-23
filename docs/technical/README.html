@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,17 +19,19 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>Terminal Launcher — Technical docs</h1>
+<h1 id="terminal-launcher-technical-docs">Terminal Launcher — Technical docs</h1>
 <p>Documentation for <strong>developers</strong> working on the code. Assumes you've skimmed the <a href="../product/README.md">Product docs</a> for the vocabulary (Pane · Layout · Workspace).</p>
-<h2>Start here</h2>
-<table><thead><tr><th>Doc</th><th>Read it for</th></tr></thead><tbody><tr><td><a href="architecture.md">Architecture</a></td><td>The layered design and the end-to-end flow from <code>launch Docs</code> to tiled windows.</td></tr><tr><td><a href="tech-stack.md">Tech Stack</a></td><td>The dependencies — stdlib core, pywebview, iterm2 API, <code>wt</code> + Win32, py2app/PyInstaller, pytest — and <em>why</em> each.</td></tr><tr><td><a href="module-reference.md">Module Reference</a></td><td>Every module: responsibility, key functions, cross-calls.</td></tr><tr><td><a href="backends.md">Backends</a></td><td>The terminal-backend abstraction — the heart of the system.</td></tr><tr><td><a href="data-model-and-config.md">Data Model &amp; Config</a></td><td>The <code>workspaces.json</code> schema, resolution order, and model precedence.</td></tr><tr><td><a href="build-packaging-testing.md">Build, Packaging &amp; Testing</a></td><td>The py2app <code>.app</code> and PyInstaller <code>.exe</code> bundles, asset loading, entitlements, and the test suite.</td></tr></tbody></table>
-<h2>The shape, at a glance</h2>
+<h2 id="start-here">Start here</h2>
+<div class="tablewrap"><table><thead><tr><th>Doc</th><th>Read it for</th></tr></thead><tbody><tr><td><a href="architecture.md">Architecture</a></td><td>The layered design and the end-to-end flow from <code>launch Docs</code> to tiled windows.</td></tr><tr><td><a href="tech-stack.md">Tech Stack</a></td><td>The dependencies — stdlib core, pywebview, iterm2 API, <code>wt</code> + Win32, py2app/PyInstaller, pytest — and <em>why</em> each.</td></tr><tr><td><a href="module-reference.md">Module Reference</a></td><td>Every module: responsibility, key functions, cross-calls.</td></tr><tr><td><a href="backends.md">Backends</a></td><td>The terminal-backend abstraction — the heart of the system.</td></tr><tr><td><a href="data-model-and-config.md">Data Model &amp; Config</a></td><td>The <code>workspaces.json</code> schema, resolution order, and model precedence.</td></tr><tr><td><a href="build-packaging-testing.md">Build, Packaging &amp; Testing</a></td><td>The py2app <code>.app</code> and PyInstaller <code>.exe</code> bundles, asset loading, entitlements, and the test suite.</td></tr></tbody></table></div>
+<h2 id="the-shape-at-a-glance">The shape, at a glance</h2>
 <p>~2,000 lines of Python across 11 modules, plus one self-contained HTML/JS GUI file. Layered: <strong>front-ends</strong> → <strong>core</strong> → <strong>backend seam</strong> → <strong>terminal backends</strong>.</p>
 <pre><code>bin/terminal-launcher          # executable entry point (symlink onto PATH)
 app_main.py                    # .app / Dock entry → straight to GUI
@@ -47,8 +50,8 @@ terminal_launcher/
 tests/                         # pytest: layouts, model, config
 packaging/                     # py2app macOS .app + PyInstaller Windows .exe
 docs/                          # this suite + decisions/ (ADRs)</code></pre>
-<h2>The two invariants worth knowing first</h2>
+<h2 id="the-two-invariants-worth-knowing-first">The two invariants worth knowing first</h2>
 <ul><li><strong>The config is a dumb JSON dict.</strong> There's no ORM or model object for panes and workspaces — every mutation in both front-ends is "change the plain dict, then <code>config.save(path, config)</code>". See <a href="data-model-and-config.md">Data Model &amp; Config</a>.</li><li><strong>Neither front-end knows which terminal it's driving.</strong> They call <code>backend.launch(...)</code>; the platform split (iTerm2 vs Windows Terminal) lives entirely behind that seam. See <a href="backends.md">Backends</a>.</li></ul>
-<h2>Deeper references</h2>
+<h2 id="deeper-references">Deeper references</h2>
 <ul><li><a href="../decisions/"><code>../decisions/</code></a> — the ADRs: <em>why</em> each choice was made (start with <a href="../decisions/0001-terminal-layer-and-core.md">0001</a> and <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">0007</a>, and <a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md">0008</a>).</li><li><a href="../product/concepts.md"><code>../product/concepts.md</code></a> — the concept model (Pane · Layout · Workspace · Composer · Actions).</li></ul>
 </main></body></html>

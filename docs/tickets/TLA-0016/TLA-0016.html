@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,25 +19,27 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>TLA-0016 — Non-interactive config CLI</h1>
+<h1 id="tla-0016-non-interactive-config-cli">TLA-0016 — Non-interactive config CLI</h1>
 <p>The config-editing verbs (<code>new</code>, <code>edit</code>, <code>pane-new</code>) are <strong>prompt-driven</strong>: they walk you through a wizard and write back. There is no way to create or edit a pane or workspace in one non-interactive call, so anything scripted has to either drive the prompts or hand-edit <code>workspaces.json</code> and hope it stays valid.</p>
-<h2>Why it matters</h2>
+<h2 id="why-it-matters">Why it matters</h2>
 <ul><li><strong>Scripting and reproducible setup</strong> — seeding a machine, or a dotfiles repo, currently means shipping a whole config file rather than a few commands.</li><li><strong>CI</strong> — no way to build a config fixture without the wizard.</li><li><strong>Agent-driven setup</strong> — the README's "hand it to your coding agent" flow stops at <code>init</code>; an agent can't compose a workspace for you without simulating keystrokes.</li><li><strong>Demo/test fixtures</strong> — the demo screenshots needed a hand-written config (see <a href="../TLA-0017/TLA-0017.md">TLA-0017</a>).</li></ul>
-<h2>Proposed surface</h2>
+<h2 id="proposed-surface">Proposed surface</h2>
 <p>Flag-driven variants alongside the existing interactive ones:</p>
 <pre><code>terminal-launcher pane-new --name API --color green --target ~/src/api --model opus
 terminal-launcher workspace set "Full Stack" --layout quad --slots api,web,infra,tests
 terminal-launcher workspace set Backend --layout split --slots api,infra --flip</code></pre>
 <p>Plus a stdin-JSON form for bulk/idempotent use:</p>
 <pre><code>echo '{"panes": {...}, "workspaces": [...]}' | terminal-launcher import --merge</code></pre>
-<h2>Design notes</h2>
+<h2 id="design-notes">Design notes</h2>
 <ul><li><strong>Thin wrapper, not a second engine.</strong> The config is already a single JSON file with <code>config.load</code> / <code>config.save</code> (atomic) and <code>model.resolve_workspace</code> for validation. These verbs should reuse that path so the interactive and non-interactive routes cannot diverge — the same property the CLI and GUI already have.</li><li><strong>Validate before writing.</strong> Reuse <code>CompositionError</code> (unknown layout, dangling pane ref) so a bad flag combination fails loudly rather than persisting a broken config.</li><li><strong>Slot model precedence.</strong> A slot stores <code>model</code> only when it <em>overrides</em> the pane default; the non-interactive form must preserve that, not write the resolved value.</li><li>Decide whether <code>set</code> is create-or-update (idempotent, good for scripts) or whether create and update stay separate verbs.</li></ul>
-<h2>Open questions</h2>
+<h2 id="open-questions">Open questions</h2>
 <ul><li>Does this replace the wizard for <code>edit</code>, or sit beside it?</li><li>Is <code>import --merge</code> worth it, or is per-entity flags enough?</li></ul>
 </main></body></html>

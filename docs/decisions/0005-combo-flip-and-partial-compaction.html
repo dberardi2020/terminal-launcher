@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,34 +19,36 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>0005 — Combo layout, horizontal flip &amp; partial-layout compaction</h1>
+<h1 id="0005-combo-layout-horizontal-flip-partial-layout-compaction">0005 — Combo layout, horizontal flip &amp; partial-layout compaction</h1>
 <p><strong>Status:</strong> Accepted · <strong>Date:</strong> 2026-07-16</p>
 <blockquote>
 <p><strong>Decision 3 amended by <a href="0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a> (2026-07-16):</strong> compaction still governs the <strong>WezTerm</strong> path, but the macOS <strong>iTerm2</strong> backend now does the opposite — it keeps empty slots as real desktop gaps, because iTerm2 gives permission-free window placement (so the Accessibility cost that made gaps unattractive below no longer applies). Combo and flip (Decisions 1–2) are unaffected.</p>
 </blockquote>
-<h2>Context</h2>
+<h2 id="context">Context</h2>
 <p>Three layout wants surfaced together, and they share one engine (<code>SPLIT_PLAN</code> in <code>wezterm.py</code> + <code>LAYOUT_CAPACITY</code> in <code>config.py</code>), so they're recorded as one ADR:</p>
 <ol><li>A layout between <strong>split</strong> (2) and <strong>quad</strong> (4): one full-height pane on one side, two stacked on the other.</li><li>A way to <strong>mirror a layout horizontally</strong> — put the "main" pane on the other side — saved with the workspace.</li><li>A fix for <strong>partial layouts</strong> (a workspace with one or more empty slots), which today spawn a login-shell pane per empty slot (<code>_prog</code> returns <code>[]</code> → default shell). An empty slot becoming a shell is the actual defect.</li></ol>
-<h2>Decision 1 — the <code>combo</code> layout (capacity 3)</h2>
+<h2 id="decision-1-the-combo-layout-capacity-3">Decision 1 — the <code>combo</code> layout (capacity 3)</h2>
 <p><code>LAYOUT_CAPACITY</code> gains <code>"combo": 3</code>, ordered between <code>split</code> and <code>quad</code>. The split plan is <code>[("right", 0), ("bottom", 1)]</code>: slot 0 opens full-height on the left; slot 1 splits to its right; slot 2 splits below slot 1. Result — a full-height <strong>Main</strong> on the left, <strong>Top</strong> / <strong>Bottom</strong> stacked on the right. Slot names are <code>Main / Top / Bottom</code> (side-agnostic, so flip doesn't invalidate them).</p>
 <p>Name: <strong>Combo</strong> — it's literally a split ⊕ one quad-half. ("Triple", "1+2", "Main+Stack" were considered; Combo read clearest in the toggle.)</p>
-<h2>Decision 2 — horizontal flip (saveable; split &amp; combo only)</h2>
+<h2 id="decision-2-horizontal-flip-saveable-split-combo-only">Decision 2 — horizontal flip (saveable; split &amp; combo only)</h2>
 <p>A workspace may carry <code>"flip": true</code>. Launch mirrors the layout horizontally by swapping the first <em>horizontal</em> split direction (<code>right</code>↔<code>left</code>); vertical splits are untouched. So a flipped split puts slot 0 on the right; a flipped combo puts <strong>Main</strong> on the right with the stack on the left.</p>
 <ul><li>Stored <strong>only when true</strong>, so single/quad configs stay clean. <code>single</code>/<code>quad</code> ignore it (a 2×2 grid has no meaningful horizontal mirror the user asked for).</li><li>The composer shows it live (a <code>.flip</code> class reorders the preview columns via CSS), and the launched window matches — one boolean drives both.</li><li>Implementation is a <em>geometry</em> transform (<code>_plan(layout, flip)</code>), not a slot reorder: slot identity/model/color are unchanged, only which side each renders on.</li></ul>
-<h2>Decision 3 — partial layouts <strong>compact</strong> (they do not switch engines)</h2>
+<h2 id="decision-3-partial-layouts-compact-they-do-not-switch-engines">Decision 3 — partial layouts <strong>compact</strong> (they do not switch engines)</h2>
 <p>The request was "partial layouts should not use WezTerm; tile them instead." Half right: the shell-pane behaviour is wrong, but switching engines is the wrong fix.</p>
-<table><thead><tr><th>Option</th><th>Empty slot becomes…</th><th>Cost</th><th>Verdict</th></tr></thead><tbody><tr><td><strong>A. Compact (chosen)</strong></td><td><em>nothing</em> — filled panes tile with the layout that fits their count (2→split, 3→combo, 4→quad)</td><td>~15 lines in <code>model.compact</code>; no new permission</td><td><strong>Accepted</strong></td></tr><tr><td><strong>B. OS-window tiler</strong> (<a href="0004-heterogeneous-panes-and-window-placement.md">ADR 0004</a>)</td><td>a preserved empty rectangle (gap)</td><td><strong>Accessibility grant</strong> — the exact cost WezTerm was chosen to avoid (<a href="0001-terminal-layer-and-core.md">ADR 0001</a>)</td><td>Rejected for the all-terminal case</td></tr><tr><td><strong>C. Keep shells</strong></td><td>a login-shell pane</td><td>none</td><td>Rejected — this is the bug</td></tr></tbody></table>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>Empty slot becomes…</th><th>Cost</th><th>Verdict</th></tr></thead><tbody><tr><td><strong>A. Compact (chosen)</strong></td><td><em>nothing</em> — filled panes tile with the layout that fits their count (2→split, 3→combo, 4→quad)</td><td>~15 lines in <code>model.compact</code>; no new permission</td><td><strong>Accepted</strong></td></tr><tr><td><strong>B. OS-window tiler</strong> (<a href="0004-heterogeneous-panes-and-window-placement.md">ADR 0004</a>)</td><td>a preserved empty rectangle (gap)</td><td><strong>Accessibility grant</strong> — the exact cost WezTerm was chosen to avoid (<a href="0001-terminal-layer-and-core.md">ADR 0001</a>)</td><td>Rejected for the all-terminal case</td></tr><tr><td><strong>C. Keep shells</strong></td><td>a login-shell pane</td><td>none</td><td>Rejected — this is the bug</td></tr></tbody></table></div>
 <p><strong>Why A over B.</strong> WezTerm <em>cannot</em> leave a hole — every pane region runs a program — so "tiled with a gap" is unreachable in the terminal engine regardless. Reaching for the OS-window placer to draw a gap would drag the Accessibility permission onto the fleeting launcher for zero benefit on an all-Claude workspace. Compaction gives the natural outcome (the filled panes fill the window) with no new cost, and composes with Combo: 3 filled slots of any layout → a combo.</p>
 <p><code>model.compact(slots)</code> drops empties, re-indexes the survivors <code>0..n-1</code> (so the split plan lines up), and returns the <code>COUNT_LAYOUT[n]</code> layout. A <em>full</em> composition is unchanged (n == capacity resolves back to its own layout). Both the CLI and the GUI run it right before handing off to <code>wezterm.launch</code>, so the two surfaces behave identically.</p>
 <p><strong>Escape hatch preserved:</strong> if a user genuinely wants empty regions kept as gaps, that is the one case that still needs Option B — and Option B is exactly what ADR 0004 already scopes (mixed workspaces). This ADR narrows 0004: the OS-window tiler is now reserved for <em>heterogeneous</em> (non-<code>claude</code>) workspaces, <strong>not</strong> for partial all-terminal ones.</p>
-<h2>Relationship to ADR 0004</h2>
+<h2 id="relationship-to-adr-0004">Relationship to ADR 0004</h2>
 <p>ADR 0004 (OS-window placement for Chrome/Finder panes) stays <strong>Proposed</strong>. This ADR removes "partial all-terminal layouts" from its motivation: those are handled here, in-engine, without Accessibility. 0004's remaining job is genuinely mixed panes.</p>
-<h2>Consequences</h2>
+<h2 id="consequences">Consequences</h2>
 <ul><li><code>combo</code> is a first-class layout across config, model, launcher, CLI, and GUI.</li><li><code>flip</code> is a per-workspace boolean; forward/back compatible (absent = false).</li><li>Empty slots never launch a shell again; partial compositions reshape to fit.</li><li>The OS-window tiler is now needed <em>only</em> for mixed workspaces — a smaller, later bet, not a prerequisite for good partial-layout behaviour.</li><li>Not yet built <em>(under WezTerm)</em>: the OS-window "preserve the gap" mode.</li><li><strong>macOS update (<a href="0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a>):</strong> under the iTerm2 backend, partial layouts <strong>keep</strong> the empty slots as real desktop gaps rather than compacting — the "preserve the gap" mode this ADR deferred, now cheap because iTerm2 needs no Accessibility. Compaction remains the WezTerm behaviour.</li></ul>
 </main></body></html>

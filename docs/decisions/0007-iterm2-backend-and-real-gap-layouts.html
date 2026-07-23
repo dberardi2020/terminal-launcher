@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,32 +19,34 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>0007 — macOS terminal layer: iTerm2 backend &amp; real-gap partial layouts</h1>
+<h1 id="0007-macos-terminal-layer-iterm2-backend-real-gap-partial-layouts">0007 — macOS terminal layer: iTerm2 backend &amp; real-gap partial layouts</h1>
 <p><strong>Status:</strong> Accepted · <strong>Date:</strong> 2026-07-16</p>
-<h2>Context</h2>
+<h2 id="context">Context</h2>
 <p><a href="0001-terminal-layer-and-core.md">ADR 0001</a> chose <strong>WezTerm</strong> as the single terminal layer, driven by a thin Python core, with cross-platform parity as the decisive advantage. In practice, WezTerm on <strong>macOS</strong> could not deliver the one thing the launcher exists to provide — <em>deterministic</em> placement of named panes:</p>
 <ul><li><code>--class</code> (the handle for addressing a specific GUI window) is X11/Wayland-only; on macOS it is a no-op, so windows couldn't be reliably targeted.</li><li>WezTerm's macOS multiplexer / workspace / instance model made "control <em>this</em> window" ambiguous, and panes intermittently rendered invisible.</li></ul>
 <p>Cross-platform parity — 0001's core reason — is real, but it bought nothing on the one platform actually in use. The reliability the launcher needs was missing exactly where it runs.</p>
-<h2>Decision</h2>
+<h2 id="decision">Decision</h2>
 <p><strong>Split the terminal layer by platform, behind a backend seam.</strong></p>
 <ul><li><strong>macOS → iTerm2</strong> (<code>iterm2_backend.py</code>), via iTerm2's Python API. We hold direct <code>Session</code> references to exactly the panes we create — unambiguous per-pane control, native windows, no Accessibility.</li><li><strong>Everything else → WezTerm</strong> (<code>wezterm.py</code>) — unchanged; still the (unverified) Windows path.</li><li><strong><code>backend.py</code></strong> selects: iTerm2 on Darwin when installed, WezTerm otherwise (including a macOS fallback if iTerm2 is absent).</li></ul>
 <p>The app talks to <strong>one interface</strong> — <code>available()</code> / <code>describe()</code> / <code>launch()</code> — so the backends are interchangeable. The split-plans moved to <code>layouts.py</code> (terminal-agnostic, unit-tested) and are shared by both backends.</p>
-<h2>Consequences</h2>
-<h3>iTerm2 auth needs Automation permission (not Accessibility)</h3>
+<h2 id="consequences">Consequences</h2>
+<h3 id="iterm2-auth-needs-automation-permission-not-accessibility">iTerm2 auth needs Automation permission (not Accessibility)</h3>
 <p>iTerm2's Python API obtains its auth cookie via an AppleScript Apple Event to iTerm2, so:</p>
 <ul><li>the py2app bundle declares <code>NSAppleEventsUsageDescription</code> — macOS then shows the consent prompt instead of silently denying the Apple Event;</li><li>the API is connected with <code>retry=False</code> — its built-in retry loops <em>forever</em> on an auth failure, so we never use it (<code>_ensure_running()</code> waits for iTerm2 instead);</li><li>first launch prompts <em>"Terminal Launcher wants to control iTerm2"</em>; a denial yields a clear, actionable error pointing at System Settings › Privacy &amp; Security › Automation.</li></ul>
 <p>This is a lighter, one-time consent than the <strong>Accessibility</strong> grant 0001 feared — and it is what makes per-pane targeting (and <code>/color</code> injection) reliable on macOS.</p>
-<h3>Real-gap partial layouts — this reverses ADR 0005's Decision 3 on macOS</h3>
+<h3 id="real-gap-partial-layouts-this-reverses-adr-0005-s-decision-3-on-macos">Real-gap partial layouts — this reverses ADR 0005's Decision 3 on macOS</h3>
 <p><a href="0005-combo-flip-and-partial-compaction.md">ADR 0005</a> chose <strong>compaction</strong> for partial layouts (drop empties, reshape the filled panes to fit) and explicitly <strong>rejected</strong> the OS-window "preserve the gap" option because, under WezTerm, drawing a gap needed Accessibility. iTerm2 removes that premise: it gives real, permission-free window placement. So the iTerm2 backend <strong>keeps the gap</strong> — each filled slot opens as its own window at its true screen rectangle (<code>_slot_rects</code> per layout), and empty slots are left as bare desktop.</p>
 <p>The two backends now differ deliberately:</p>
-<table><thead><tr><th></th><th>Full layout</th><th>Partial layout</th></tr></thead><tbody><tr><td><strong>iTerm2 (macOS)</strong></td><td>one maximized split-pane window</td><td>one window per filled slot at its slot rect; empties left as <strong>desktop gaps</strong></td></tr><tr><td><strong>WezTerm (other)</strong></td><td>one split-pane window</td><td><strong>compacts</strong> (0005) — no gap primitive without Accessibility</td></tr></tbody></table>
+<div class="tablewrap"><table><thead><tr><th></th><th>Full layout</th><th>Partial layout</th></tr></thead><tbody><tr><td><strong>iTerm2 (macOS)</strong></td><td>one maximized split-pane window</td><td>one window per filled slot at its slot rect; empties left as <strong>desktop gaps</strong></td></tr><tr><td><strong>WezTerm (other)</strong></td><td>one split-pane window</td><td><strong>compacts</strong> (0005) — no gap primitive without Accessibility</td></tr></tbody></table></div>
 <p>0005's compaction reasoning still holds <em>for WezTerm</em>; it is superseded only on the iTerm2 path.</p>
-<h3>Other</h3>
+<h3 id="other">Other</h3>
 <ul><li><strong>Styled dynamic profile.</strong> iTerm2 launches use a dedicated hot-reloaded profile (<code>terminal-launcher.json</code>, One Dark-ish, Menlo 13) so appearance is consistent and never touches the user's own profiles. Theming stays configurable, deferred.</li><li><strong>Self-validation became possible.</strong> iTerm2 exposes window/session state over the same API, so a launch can be verified by read-back (plus <code>screencapture</code>) without a human — the WezTerm era had no equivalent.</li><li><strong><code>wezterm.py</code> still carries its own <code>SPLIT_PLAN</code></strong> — reconciling it with <code>layouts.py</code> (single source of truth) is open backlog.</li><li><strong>TCC persistence.</strong> An unsigned py2app bundle may re-prompt for Automation after each rebuild (acceptable for a personal tool; ad-hoc signing would stabilize it).</li><li><strong>ADR 0001 is amended, not superseded</strong> — WezTerm remains the non-macOS backend, and the thin-core / backend-seam design 0001 established is what made this swap a single new module.</li></ul>
 </main></body></html>

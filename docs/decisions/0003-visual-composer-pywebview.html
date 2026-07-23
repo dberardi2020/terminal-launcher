@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,25 +19,27 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>0003 — Visual composer: a fleeting native window (pywebview)</h1>
+<h1 id="0003-visual-composer-a-fleeting-native-window-pywebview">0003 — Visual composer: a fleeting native window (pywebview)</h1>
 <p><strong>Status:</strong> Accepted · <strong>Date:</strong> 2026-07-13</p>
-<h2>Context</h2>
+<h2 id="context">Context</h2>
 <p>The design splits into two independent decisions: the <em>terminal layer</em> (<a href="0001-terminal-layer-and-core.md">ADR 0001</a>) and the <em>composer UI</em>. This ADR records the composer.</p>
 <p>Two things shaped it. First, the tool is <strong>fleeting</strong>: you open it, compose or pick a workspace, launch, and it gets out of the way — the open → launch → gone feel of a native desktop app. Second, two composers are wanted: a <strong>headless CLI</strong> for scripting, and a <strong>visual, dockable composer</strong> for everyday use.</p>
-<h2>Decision</h2>
+<h2 id="decision">Decision</h2>
 <p><strong>A CLI composer plus a visual composer that is a fleeting native window (pywebview), both over the same <code>workspaces.json</code>.</strong></p>
 <ul><li><strong>CLI</strong> (<code>new</code> / <code>edit</code> / <code>pane-new</code>) — headless, scriptable; writes back to config.</li><li><strong>Visual composer</strong> (<code>terminal-launcher gui</code>) — pywebview renders local HTML/CSS/JS in the OS's <strong>native WebView</strong> (WKWebView on macOS, WebView2 on Windows) and bridges UI events straight into the same Python core (<code>config</code> + <code>wezterm</code>). <strong>No web server, no persistent process</strong> — the window <em>is</em> the app.</li><li><strong>Fleeting launch</strong> — once a launch is fully handed off, the process exits, so the composer disappears behind you; the WezTerm window and Claude sessions are independent processes and live on.</li></ul>
-<h2>Options weighed</h2>
-<table><thead><tr><th>Option</th><th>Fleeting native window</th><th>Reuses HTML UI</th><th>New toolchain</th></tr></thead><tbody><tr><td><strong>pywebview</strong> (chosen)</td><td>yes — closes cleanly</td><td>yes, directly</td><td>none (stays in Python)</td></tr><tr><td>Server-backed web app</td><td><strong>no</strong> — a persistent server is the opposite ethos</td><td>yes</td><td>a running server</td></tr><tr><td>Tauri</td><td>yes</td><td>yes</td><td>Rust + build step</td></tr><tr><td>SwiftUI / Avalonia</td><td>yes</td><td>no (rewrite UI)</td><td>Swift / .NET</td></tr><tr><td>CLI only</td><td>n/a</td><td>n/a</td><td>none, but no visual composer</td></tr></tbody></table>
+<h2 id="options-weighed">Options weighed</h2>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>Fleeting native window</th><th>Reuses HTML UI</th><th>New toolchain</th></tr></thead><tbody><tr><td><strong>pywebview</strong> (chosen)</td><td>yes — closes cleanly</td><td>yes, directly</td><td>none (stays in Python)</td></tr><tr><td>Server-backed web app</td><td><strong>no</strong> — a persistent server is the opposite ethos</td><td>yes</td><td>a running server</td></tr><tr><td>Tauri</td><td>yes</td><td>yes</td><td>Rust + build step</td></tr><tr><td>SwiftUI / Avalonia</td><td>yes</td><td>no (rewrite UI)</td><td>Swift / .NET</td></tr><tr><td>CLI only</td><td>n/a</td><td>n/a</td><td>none, but no visual composer</td></tr></tbody></table></div>
 <ul><li><strong>Server-backed web app — rejected outright.</strong> A long-running localhost server directly contradicts the fleeting ethos.</li><li><strong>Heavy native frameworks (SwiftUI / Avalonia / Tauri) — rejected as overkill.</strong> A compiled native app is the eventual Dock form, but rewriting the UI in Swift or C# or adding a Rust build toolchain is too much for a personal fleeting tool. pywebview reuses the HTML/CSS/JS UI and the existing Python core with no new language.</li></ul>
-<h2>The interaction</h2>
+<h2 id="the-interaction">The interaction</h2>
 <p>The visual composer is a <strong>launchpad of workspace cards</strong> above a live <strong>composer</strong>. The <strong>slot editor is an inline side panel, not a modal</strong>: selecting a slot opens an editor headed <em>“Editing ‹position›”</em> (slots named by position — <em>Left/Right</em>, or the quad corners), with a <strong>click-to-fill</strong> pane list (clicking a pane assigns it immediately) and <strong>model chips</strong> including a <strong>Default</strong> (inherit the pane's own default). Editor verbs are <em>Clear slot / Done</em>; composition verbs (<em>Launch · Save as new · Update · Revert · Clear</em>) sit in the footer; per-workspace verbs (<em>Rename · Duplicate · Delete</em>) on each card's <strong>⋯</strong> menu. <strong>Panes are created and edited inline</strong> in the same side panel (each pane row has an edit affordance; a <strong>⚙ Panes</strong> button opens the full registry) — so the whole config is editable from the window, no modals.</p>
-<h2>Consequences</h2>
+<h2 id="consequences">Consequences</h2>
 <ul><li><strong>Fleeting close is <code>os._exit(0)</code></strong> from the launch worker thread. pywebview's <code>window.destroy()</code> proved unreliable when called from a non-managed thread in this build, and the process <em>is</em> the app, so exiting is the clean, deterministic close.</li><li><strong>The launch runs on a background thread</strong> — doing it on the GUI thread beachballs the window (it sleeps for color-injection timing), and destroying from inside a JS-API call deadlocks.</li><li><strong>Opens maximized</strong> — pywebview <code>maximized=True</code>; the launched WezTerm window is maximized by the mechanism in ADR 0001 / <a href="0002-identity-injection.md">0002</a>.</li><li><strong>One source of truth</strong> — CLI and visual composer read/write the same <code>workspaces.json</code>, so they never diverge.</li><li><strong>Pending:</strong> packaging into a double-clickable Dock <code>.app</code> (via <code>py2app</code>). Until then the composer runs from <code>terminal-launcher gui</code>.</li></ul>
 </main></body></html>

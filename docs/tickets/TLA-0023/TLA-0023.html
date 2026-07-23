@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,47 +19,49 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>TLA-0023 — Audit error handling, reporting &amp; logging</h1>
+<h1 id="tla-0023-audit-error-handling-reporting-logging">TLA-0023 — Audit error handling, reporting &amp; logging</h1>
 <p>Both halves sweep the <em>same</em> call sites — <code>_paste_command</code>, <code>cmd_restore</code>, <code>backend.launch</code>, and the GUI bridge all log <strong>and</strong> report — so they stay one ticket. Split if (a) alone proves large enough.</p>
-<h2>Why now</h2>
+<h2 id="why-now">Why now</h2>
 <p>Two "failure looked like success" defects turned up in a single feature (<code>/restore</code>), both in code that read fine:</p>
 <ul><li><strong>Windows</strong> — <code>_paste_command</code> only <em>logged</em> a miss while <code>cmd_restore</code> printed <code>RESTORED</code> regardless, so the slash command told the user <em>"Restored <code>&lt;name&gt;</code>"</em> for a paste that never happened.</li><li><strong>macOS</strong> — <code>restore_current</code> let exceptions escape into the iterm2 runner, which catches-and-prints and exits 1, bypassing the <code>ERROR</code> branch entirely.</li></ul>
 <p>Both are fixed. The point of the audit is that neither was <em>visible</em> by reading the call site — the reporting contract lived in one module and the failure in another.</p>
-<h2>(a) Errors</h2>
+<h2 id="a-errors">(a) Errors</h2>
 <p>Sweep every failure path and ask: does it propagate, is failure distinguishable from success, is the message actionable, is the documented contract honoured (<code>DETECTED</code> / <code>RESTORED</code> / <code>UNKNOWN</code> / <code>ERROR</code> + exit codes)?</p>
 <p>Specific areas:</p>
 <ul><li><strong><code>backend.launch</code></strong> — per-slot failure partway through a multi-pane launch.</li><li><strong>The pywebview bridge</strong> — pywebview turns exceptions into silently-rejected JS promises; that's why <code>gui.Api</code> wraps every public method in a tracer. Confirm the tracer's coverage is complete.</li><li><strong>CLI exit codes</strong> — audit against the documented contract in <code>cmd_restore</code>'s docstring.</li></ul>
-<h3>Write down the lenient-vs-strict convention</h3>
+<h3 id="write-down-the-lenient-vs-strict-convention">Write down the lenient-vs-strict convention</h3>
 <p>This is the load-bearing decision, currently implicit in the code:</p>
 <ul><li><strong>Launch-time <code>/color</code> is lenient</strong> — <code>_inject_color</code> ignores <code>_paste_command</code>'s return. One pane failing to colour must not abort a quad launch.</li><li><strong><code>restore</code> is strict</strong> — <code>restore_current</code> raises, so a failed injection reaches the CLI's <code>ERROR</code> branch rather than being reported as success.</li></ul>
 <p>Both are correct, but nothing states the rule, so the next call site is a coin flip.</p>
-<h2>(b) Logging</h2>
-<h3>Known: the stderr banner</h3>
+<h2 id="b-logging">(b) Logging</h2>
+<h3 id="known-the-stderr-banner">Known: the stderr banner</h3>
 <p><code>diag.setup()</code> attaches a <code>StreamHandler</code> alongside the rotating file handler, so <code>INFO: --- diag ready (log at …) ---</code> prints on <strong>every</strong> CLI invocation before its real output. Observed on every run during the Windows verification.</p>
 <p>It's on stderr, so it can't corrupt <code>restore</code>'s tab-delimited stdout contract — but it <em>is</em> visible in the <code>/restore</code> slash-command output the user reads. Options: drop the banner to <code>DEBUG</code>, or attach the stderr handler only for the GUI / long-running paths.</p>
-<h3>Known: no verbosity control</h3>
+<h3 id="known-no-verbosity-control">Known: no verbosity control</h3>
 <p>Level is hardcoded <code>DEBUG</code> on the logger, with no <code>--verbose</code> / <code>--quiet</code> flag, no env var, and no config key. Both handlers inherit it.</p>
-<h3>Known: double-reporting</h3>
+<h3 id="known-double-reporting">Known: double-reporting</h3>
 <p>Raised failures shouldn't <em>also</em> log a warning. Note the Windows <code>/restore</code> fix <strong>introduced</strong> an instance of this: <code>_paste_command</code> logs a warning on a focus failure <em>and</em> returns <code>False</code>, on which <code>restore_current</code> raises. One event, two reports.</p>
-<h3>Found during the Windows verification — <code>restore.py</code> has no logging at all</h3>
+<h3 id="found-during-the-windows-verification-restore-py-has-no-logging-at-all">Found during the Windows verification — <code>restore.py</code> has no logging at all</h3>
 <p><code>restore.py</code> is the newest surface and has <strong>zero</strong> log calls. Nothing records:</p>
 <ul><li>which pane targets were considered against the cwd,</li><li>which one won a longest-match tie,</li><li>whether the per-session sentinel was read, written, or missed.</li></ul>
 <p>"Why did it pick that pane?" is this feature's primary failure mode, and today the only way to answer it is to re-run with <code>--detect-only</code> and infer. The backends already log this way (<code>_log.info("wt launch: layout=%s …")</code>); <code>detect()</code> should too.</p>
 <p>Note the ticket's existing wording covers <em>pane-launch</em> failures logging enough context — detection is a separate path and is not covered by that.</p>
-<h3>Found during the Windows verification — no run attribution</h3>
+<h3 id="found-during-the-windows-verification-no-run-attribution">Found during the Windows verification — no run attribution</h3>
 <p>The log format carries no PID or run-id:</p>
 <pre><code>2026-07-21 12:34:29 INFO  [terminal_launcher] wt launch: layout=single flip=False slots=1 filled=1</code></pre>
 <p>Concurrency is expected — the wt backend holds a named mutex (<code>TerminalLauncher.ColorInjection</code>) precisely so simultaneous launches don't clobber each other's clipboard and foreground. When two interleave, their lines can't be told apart.</p>
 <p>Also note <code>[%(name)s]</code> is always the literal <code>terminal_launcher</code>: <code>diag.get_logger()</code> returns one shared logger rather than per-module <code>__name__</code> loggers, so the field carries no information and the module a line came from is unrecoverable.</p>
-<h2>Current state, for reference</h2>
-<table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>Sink</td><td><code>~/.config/terminal-launcher/terminal-launcher.log</code>, <code>RotatingFileHandler</code> 512 KB × 2, UTF-8</td></tr><tr><td>Second sink</td><td><code>StreamHandler</code> → stderr</td></tr><tr><td>Level</td><td><code>DEBUG</code>, hardcoded</td></tr><tr><td>Format</td><td><code>%(asctime)s %(levelname)-5s [%(name)s] %(message)s</code></td></tr><tr><td>Uncaught</td><td><code>sys.excepthook</code> logs <code>UNCAUGHT</code> with traceback, then delegates</td></tr><tr><td>Read paths</td><td><code>logs</code> CLI verb (<code>read_tail</code>, 200 lines); GUI <code>get_diagnostics</code> (300), <code>export_logs</code>, reveal-log button</td></tr><tr><td><code>setup()</code> callers</td><td><code>cli.py</code>, <code>gui.py</code> — idempotent via a module-level <code>_configured</code></td></tr></tbody></table>
+<h2 id="current-state-for-reference">Current state, for reference</h2>
+<div class="tablewrap"><table><thead><tr><th></th><th></th></tr></thead><tbody><tr><td>Sink</td><td><code>~/.config/terminal-launcher/terminal-launcher.log</code>, <code>RotatingFileHandler</code> 512 KB × 2, UTF-8</td></tr><tr><td>Second sink</td><td><code>StreamHandler</code> → stderr</td></tr><tr><td>Level</td><td><code>DEBUG</code>, hardcoded</td></tr><tr><td>Format</td><td><code>%(asctime)s %(levelname)-5s [%(name)s] %(message)s</code></td></tr><tr><td>Uncaught</td><td><code>sys.excepthook</code> logs <code>UNCAUGHT</code> with traceback, then delegates</td></tr><tr><td>Read paths</td><td><code>logs</code> CLI verb (<code>read_tail</code>, 200 lines); GUI <code>get_diagnostics</code> (300), <code>export_logs</code>, reveal-log button</td></tr><tr><td><code>setup()</code> callers</td><td><code>cli.py</code>, <code>gui.py</code> — idempotent via a module-level <code>_configured</code></td></tr></tbody></table></div>
 <p>Call sites by module — the backends log, and effectively nothing else does:</p>
-<table><thead><tr><th>Module</th><th>Calls</th></tr></thead><tbody><tr><td><code>iterm2_backend.py</code></td><td>9</td></tr><tr><td><code>windows_terminal_backend.py</code></td><td>6</td></tr><tr><td><code>gui.py</code></td><td>6</td></tr><tr><td><code>cli.py</code>, <code>backend.py</code>, <code>config.py</code>, <code>restore.py</code>, <code>model.py</code>, <code>layouts.py</code></td><td>0</td></tr></tbody></table>
+<div class="tablewrap"><table><thead><tr><th>Module</th><th>Calls</th></tr></thead><tbody><tr><td><code>iterm2_backend.py</code></td><td>9</td></tr><tr><td><code>windows_terminal_backend.py</code></td><td>6</td></tr><tr><td><code>gui.py</code></td><td>6</td></tr><tr><td><code>cli.py</code>, <code>backend.py</code>, <code>config.py</code>, <code>restore.py</code>, <code>model.py</code>, <code>layouts.py</code></td><td>0</td></tr></tbody></table></div>
 <p>Worth keeping through any refactor: WebView JS errors (<code>window.onerror</code>, <code>unhandledrejection</code>, <code>console.error</code>) are forwarded over the pywebview bridge via <code>Api.log_client</code> into the same file, so a composer bug leaves a record instead of vanishing into a WebView console nobody can open.</p>
 </main></body></html>

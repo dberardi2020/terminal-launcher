@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,19 +19,21 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>Data Model &amp; Config</h1>
+<h1 id="data-model-config">Data Model &amp; Config</h1>
 <p>One JSON file — <code>workspaces.json</code> — is the single source of truth for panes, workspaces, and settings. It's a <strong>plain dict</strong> end to end: there's no ORM or model object; both front-ends mutate the dict and call <code>config.save</code>.</p>
-<h2>Where the config lives</h2>
+<h2 id="where-the-config-lives">Where the config lives</h2>
 <p>Resolution order (<code>config.default_config_path</code>, plus the CLI's <code>--config</code>):</p>
 <ol><li><code>--config &lt;path&gt;</code> (CLI global flag) or the <code>TERMINAL_LAUNCHER_CONFIG</code> env var</li><li><code>$XDG_CONFIG_HOME/terminal-launcher/workspaces.json</code></li><li><code>~/.config/terminal-launcher/workspaces.json</code></li></ol>
 <p><code>config.load()</code> backfills any missing top-level keys and <code>settings</code> sub-keys from <code>DEFAULT_CONFIG</code>, so callers always see a complete shape. <code>config.save()</code> is <strong>atomic</strong> — it writes a <code>.tmp</code> sibling and <code>replace()</code>s, so an interrupted write never truncates your config.</p>
-<h2>The schema</h2>
+<h2 id="the-schema">The schema</h2>
 <pre><code>{
   "version": 1,
   "settings": {
@@ -61,20 +64,20 @@ strong{font-weight:650}
     }
   ]
 }</code></pre>
-<h3>Objects</h3>
-<table><thead><tr><th>Object</th><th>Key fields</th></tr></thead><tbody><tr><td><strong>settings</strong></td><td><code>defaultModel</code>, <code>injectColor</code> (bool), <code>colorDelay</code> (seconds).</td></tr><tr><td><strong>model</strong></td><td><code>id</code> (passed to <code>claude --model</code>), <code>label</code> (shown in the picker).</td></tr><tr><td><strong>pane</strong> <em>(registry value)</em></td><td><code>name</code>, <code>color</code> (a named color), <code>target</code> (dir; <code>~</code>/<code>$VARS</code> allowed), <code>model</code> (default; optional). Keyed by a slug id.</td></tr><tr><td><strong>workspace</strong></td><td><code>name</code>, <code>layout</code>, optional <code>flip</code>, <code>slots</code>.</td></tr><tr><td><strong>slot</strong></td><td><code>{ "pane": &lt;id&gt; }</code>, optionally <code>+ "model"</code>; <code>null</code> or missing → empty.</td></tr></tbody></table>
-<h3>Notable rules</h3>
+<h3 id="objects">Objects</h3>
+<div class="tablewrap"><table><thead><tr><th>Object</th><th>Key fields</th></tr></thead><tbody><tr><td><strong>settings</strong></td><td><code>defaultModel</code>, <code>injectColor</code> (bool), <code>colorDelay</code> (seconds).</td></tr><tr><td><strong>model</strong></td><td><code>id</code> (passed to <code>claude --model</code>), <code>label</code> (shown in the picker).</td></tr><tr><td><strong>pane</strong> <em>(registry value)</em></td><td><code>name</code>, <code>color</code> (a named color), <code>target</code> (dir; <code>~</code>/<code>$VARS</code> allowed), <code>model</code> (default; optional). Keyed by a slug id.</td></tr><tr><td><strong>workspace</strong></td><td><code>name</code>, <code>layout</code>, optional <code>flip</code>, <code>slots</code>.</td></tr><tr><td><strong>slot</strong></td><td><code>{ "pane": &lt;id&gt; }</code>, optionally <code>+ "model"</code>; <code>null</code> or missing → empty.</td></tr></tbody></table></div>
+<h3 id="notable-rules">Notable rules</h3>
 <ul><li><strong><code>slots</code> length is advisory.</strong> <code>resolve_workspace</code> always produces exactly <code>LAYOUT_CAPACITY[layout]</code> slots — extra entries are ignored, missing ones are padded as empty.</li><li><strong>A slot's <code>model</code> is stored only when it overrides</strong> the pane's own default. Inherited models are left off entirely (surfaced as the "Default" chip in the GUI). Same for <code>flip</code> — written only when <code>true</code>, so single/quad workspaces stay clean.</li><li><strong><code>color</code></strong> is a named value from <code>COLORS</code> — <code>blue, orange, red, purple, green, cyan, pink, gray</code> — each mapping to a hex (<code>color_hex</code>, default gray <code>#8a8a9a</code>).</li></ul>
-<h2>Resolution: workspace → ResolvedSlots</h2>
+<h2 id="resolution-workspace-resolvedslots">Resolution: workspace → ResolvedSlots</h2>
 <p><code>model.resolve_workspace(config, ws)</code> turns a stored workspace into concrete slots:</p>
 <pre><code>ResolvedSlot(index, empty, pane_id, name, color, color_hex, target, model)</code></pre>
 <p>For each of the <code>LAYOUT_CAPACITY[layout]</code> positions:</p>
 <ul><li>No pane assigned → <code>ResolvedSlot(index=i, empty=True)</code>.</li><li>Assigned → look up the pane (dangling ref raises <code>CompositionError</code>), then fill <code>name</code>, <code>color</code>/<code>color_hex</code>, <code>target</code> (via <code>expand_target</code>: <code>~</code> then env vars), and <code>model</code> by precedence.</li></ul>
-<h3>Model precedence</h3>
+<h3 id="model-precedence">Model precedence</h3>
 <pre><code>slot override   →   pane default   →   global settings.defaultModel</code></pre>
 <p><code>{ "pane": "code", "model": "haiku" }</code> runs haiku; <code>{ "pane": "code" }</code> runs the pane's own <code>model</code> (<code>opus</code>); a pane with no <code>model</code> runs <code>settings.defaultModel</code>.</p>
-<h2>Capacity-shaped slots, real gaps</h2>
+<h2 id="capacity-shaped-slots-real-gaps">Capacity-shaped slots, real gaps</h2>
 <p><code>resolve_workspace</code> yields a <strong>capacity-shaped</strong> list — always <code>LAYOUT_CAPACITY[layout]</code> slots, each filled or marked <code>empty</code>. Both backends consume it <strong>as-is</strong>: each filled slot becomes its own window at its slot rectangle, and each empty slot is left as a real desktop gap. There is no compaction phase — the tool no longer reshapes a partial layout to a tighter one (that was the removed WezTerm path; see <a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md">ADR 0008</a>).</p>
-<h2>Two capacity tables — kept in lockstep by a test</h2>
+<h2 id="two-capacity-tables-kept-in-lockstep-by-a-test">Two capacity tables — kept in lockstep by a test</h2>
 <p>Capacity is declared twice: <code>config.LAYOUT_CAPACITY</code> and <code>layouts.CAPACITY</code> (derived from <code>SPLIT_PLAN</code> lengths). They must never drift — <code>tests/test_config.py</code> asserts <code>LAYOUT_CAPACITY == CAPACITY</code> exactly to guard it. See <a href="build-packaging-testing.md">Build, Packaging &amp; Testing</a>.</p>
 </main></body></html>

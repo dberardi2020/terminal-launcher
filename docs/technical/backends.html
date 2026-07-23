@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,15 +19,17 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>Backends</h1>
+<h1 id="backends">Backends</h1>
 <p>The terminal-backend layer is where an abstract layout becomes real windows. It's the part of the system with the most platform reality in it — and the part most carefully sealed off behind a small contract so nothing above it has to care which terminal is running.</p>
-<h2>The contract</h2>
+<h2 id="the-contract">The contract</h2>
 <p>Both backend modules expose the <strong>same four functions</strong> (identical signatures):</p>
 <pre><code>available() -&gt; bool
 describe(layout, slots, flip: bool = False) -&gt; list[str]        # dry-run text
@@ -36,7 +39,7 @@ launch(layout, slots, inject_color: bool = False,
 restore_current(color: str, name: str) -&gt; None                 # re-inject into THIS session</code></pre>
 <p><code>slots</code> is a list of <code>model.ResolvedSlot</code>. <code>backend.py</code> is a pure router that forwards to a selected implementation and adds <code>name()</code> / <code>install_hint()</code> / <code>restore_identity()</code>.</p>
 <p><code>restore_current</code> is the seam behind the <code>restore</code> verb (re-apply a pane's <code>/color</code> + <code>/rename</code> after Claude Code's <code>/clear</code>). It targets the <strong>current</strong> session rather than one the backend just spawned: iTerm2 resolves it by <code>ITERM_SESSION_ID</code> and sends over the API; Windows Terminal takes the foreground <code>wt</code> window and clipboard-pastes each command. The cross-platform "which pane am I?" detection lives in <code>restore.py</code>, above the seam.</p>
-<h2>Selection (<code>backend.py</code>)</h2>
+<h2 id="selection-backend-py">Selection (<code>backend.py</code>)</h2>
 <pre><code>def _impl():
     if iterm2_backend.available():            # macOS + iTerm2 installed
         return iterm2_backend
@@ -45,29 +48,29 @@ restore_current(color: str, name: str) -&gt; None                 # re-inject in
     return None                               # no native backend here</code></pre>
 <ul><li><strong>macOS + iTerm2 → <code>iterm2_backend</code>.</strong> <code>available()</code> requires <code>Darwin</code>, <code>/Applications/iTerm.app</code>, and an importable <code>iterm2</code> lib.</li><li><strong>Windows + <code>wt</code> → <code>windows_terminal_backend</code>.</strong> <code>available()</code> requires <code>Windows</code> and <code>shutil.which("wt")</code>.</li><li><strong>Otherwise → none.</strong> <code>available()</code> is False and <code>launch()</code> raises an actionable error.</li></ul>
 <p><code>_impl()</code> runs fresh on every call — no caching — so installing a backend mid-session is picked up next call. Importing this module is safe on every platform: each backend defers its heavy OS dependency (the <code>iterm2</code> lib; <code>ctypes.windll</code> / <code>WINFUNCTYPE</code>) to platform-only code paths, never at import.</p>
-<h2>The shared model: one window per pane</h2>
+<h2 id="the-shared-model-one-window-per-pane">The shared model: one window per pane</h2>
 <p>Both backends realize the <strong>same</strong> model (<a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md">ADR 0008</a>): each <em>filled</em> slot is its own OS window placed at its slot rectangle; empty slots are left as bare desktop (real gaps). There is no full-vs-partial divergence and no compaction — a full quad is four windows in the four quadrants, just as a partial quad is however-many windows with gaps where the empties are.</p>
 <p>Placement is <strong>self-owned geometry</strong>, not the OS snap UI. Neither Windows nor macOS exposes a supported way to <em>invoke</em> native snapping programmatically (only synthetic input or the Accessibility/AX API), so each backend computes rectangles from the OS work area and places its own windows there — deterministic, permission-light, and pixel-aligned to where the OS would snap.</p>
-<h2><code>iterm2_backend.py</code> — the iTerm2 Python API</h2>
-<h3>Async on its own event loop</h3>
+<h2 id="iterm2backend-py-the-iterm2-python-api"><code>iterm2_backend.py</code> — the iTerm2 Python API</h2>
+<h3 id="async-on-its-own-event-loop">Async on its own event loop</h3>
 <p>The build tree is <code>async def</code> (awaiting the iterm2 lib throughout). <code>launch()</code> creates a <strong>fresh <code>asyncio</code> event loop</strong> and runs <code>iterm2.run_until_complete(main, retry=False)</code> — its own loop because the launcher runs on a pywebview GUI worker thread with no ambient loop.</p>
-<h3>Auth: Automation, and why <code>retry=False</code></h3>
+<h3 id="auth-automation-and-why-retry-false">Auth: Automation, and why <code>retry=False</code></h3>
 <p>iTerm2's Python API gets its auth cookie through iTerm2's AppleScript automation surface — so this needs <strong>Automation</strong> permission (not Accessibility). The lib's built-in connect-retry <strong>loops forever</strong> on an auth denial, so it's disabled; the code does its own waiting in <code>_ensure_running()</code> and, on failure, re-raises a <code>RuntimeError</code> pointing at <em>System Settings › Privacy &amp; Security › Automation</em>.</p>
-<h3>Bringing iTerm2 up without a rogue window</h3>
+<h3 id="bringing-iterm2-up-without-a-rogue-window">Bringing iTerm2 up without a rogue window</h3>
 <ul><li><code>_ensure_running()</code> — if iTerm2 isn't running, <code>open -g -a iTerm</code> (background), poll <code>pgrep -x iTerm2</code> up to ~8 s, then a 1.5 s settle for the API socket.</li><li>It <strong>deliberately never re-<code>open</code>s an already-running iTerm2</strong> — activating a zero-window iTerm2 pops an empty default window.</li><li><code>cold = not _is_running()</code> is captured <em>before</em> ensuring — it gates stray-window cleanup.</li></ul>
-<h3>Spawning &amp; placing</h3>
+<h3 id="spawning-placing">Spawning &amp; placing</h3>
 <ul><li>A <strong>dynamic profile</strong> is written first to <code>~/Library/Application Support/iTerm2/DynamicProfiles/terminal-launcher.json</code> (iTerm2 hot-reloads that dir) — a dedicated One-Dark-ish / Menlo 13 profile that never touches the user's own profiles.</li><li>Per-slot command + cwd ride in a write-only profile override (<code>LocalWriteOnlyProfile</code>): custom command <code>claude -n &lt;name&gt; --model &lt;model&gt;</code> (or the default shell for an empty slot), and a custom initial directory.</li><li><code>_build</code> creates one window per filled slot and <code>async_set_frame</code>s it to <code>_slot_rects(layout, flip)[slot.index]</code> (Cocoa coords, origin bottom-left; flip mirrors x). Screen size comes from <strong>CoreGraphics via <code>ctypes</code></strong> (<code>CGMainDisplayID</code> / <code>CGDisplayBounds</code>) — permission-free, no AppleScript prompt — minus a 25 px menu bar.</li></ul>
-<h3>Stray-window cleanup</h3>
+<h3 id="stray-window-cleanup">Stray-window cleanup</h3>
 <p>Only when <code>cold</code>, <code>_close_stray_default_window</code> closes a window <strong>only</strong> if it has exactly one tab / one session whose name is a bare login shell (<code>_SHELL_NAMES = {-zsh, zsh, -bash, …}</code>) — narrowly gated so it never kills a user's real window.</p>
-<h2><code>windows_terminal_backend.py</code> — <code>wt</code> + Win32 (ctypes)</h2>
+<h2 id="windowsterminalbackend-py-wt-win32-ctypes"><code>windows_terminal_backend.py</code> — <code>wt</code> + Win32 (ctypes)</h2>
 <ul><li><strong>Spawn.</strong> One window per filled slot: <code>wt -w new -d &lt;dir&gt; --title &lt;name&gt; claude -n &lt;name&gt; --model &lt;model&gt;</code>. <code>-w new</code> forces a separate window (not a tab); everything after the executable is passed to <code>claude</code> verbatim. (<code>--tabColor</code> was tried and dropped — the pane hex didn't read well against Windows Terminal's own theming; the pane's colour still lands on Claude's prompt bar via <code>/color</code>.)</li><li><strong>Discover.</strong> <code>wt</code> returns immediately after handing off to a WindowsTerminal host process (new or existing), so the new window is found by <strong>diffing the set of visible <code>CASCADIA_HOSTING_WINDOW_CLASS</code> windows</strong> before/after the spawn — not by PID.</li><li><strong>Place.</strong> <code>SetWindowPos</code> to <code>_slot_rects(layout, flip)[slot.index]</code> (Win32 coords, origin top-left, from <code>SPI_GETWORKAREA</code>). Two passes: place, then read <code>DWMWA_EXTENDED_FRAME_BOUNDS</code> and re-place so the <strong>visible</strong> frame lands on the rect (Win11's invisible resize border would otherwise leave a seam gap). The process is made <strong>per-monitor-DPI-aware</strong> so coordinates are physical pixels. Primary monitor only for now.</li><li><strong>64-bit HWND safety.</strong> ctypes arg/restypes are configured (<code>_configure()</code>) so handles aren't truncated to 32-bit ints — the classic "wrong window" bug.</li><li><strong>No permission prompt</strong> — positioning a window you spawned needs none.</li></ul>
-<h2>Identity injection</h2>
+<h2 id="identity-injection">Identity injection</h2>
 <p>Identity is three things — the window <strong>name/title</strong>, and the Claude-side <strong><code>/color</code></strong> prompt tint:</p>
-<table><thead><tr><th></th><th>iTerm2</th><th>Windows Terminal</th></tr></thead><tbody><tr><td>Name/title</td><td><code>session.async_set_name(name)</code></td><td><code>wt --title &lt;name&gt;</code></td></tr><tr><td><code>/color</code> delivery</td><td><code>async_send_text</code> — <strong>no focus needed</strong></td><td><strong>focus the window</strong> (<code>AttachThreadInput</code>) then <strong>paste</strong> via the clipboard (Ctrl+V)</td></tr><tr><td>Submit</td><td>separate <code>async_send_text("\r")</code></td><td>separate Enter keystroke</td></tr></tbody></table>
+<div class="tablewrap"><table><thead><tr><th></th><th>iTerm2</th><th>Windows Terminal</th></tr></thead><tbody><tr><td>Name/title</td><td><code>session.async_set_name(name)</code></td><td><code>wt --title &lt;name&gt;</code></td></tr><tr><td><code>/color</code> delivery</td><td><code>async_send_text</code> — <strong>no focus needed</strong></td><td><strong>focus the window</strong> (<code>AttachThreadInput</code>) then <strong>paste</strong> via the clipboard (Ctrl+V)</td></tr><tr><td>Submit</td><td>separate <code>async_send_text("\r")</code></td><td>separate Enter keystroke</td></tr></tbody></table></div>
 <p><strong>The load-bearing gotcha (both backends):</strong> a <code>/color &lt;name&gt;</code> command must be delivered and then submitted <em>separately</em>, and Claude's slash-command autocomplete can eat characters. iTerm2 sends the text then a lone CR. Windows has no per-pane send API, so it <strong>pastes</strong> the whole command via the clipboard (Ctrl+V) — one atomic input event autocomplete can't split — then a separate Enter. Paste is preferred over per-character typing precisely because it's 1–2 synthetic events, not one per letter; the clipboard is saved/restored around it. See <a href="../decisions/0002-identity-injection.md">ADR 0002</a>.</p>
 <p><strong>A clean interpreter environment.</strong> Each pane's command is prefixed with <code>/usr/bin/env -u PYTHONHOME -u PYTHONPATH</code>. The py2app bundle sets both at its own <code>Contents/Resources</code>, and a cold start launches iTerm2 <em>from the bundle</em>, so every session would otherwise inherit them and any <code>python</code> in a pane would resolve the bundle's stdlib. <code>backend.scrub_bundled_python_env()</code> handles the cold-start case at the entry points; the per-command prefix additionally covers an iTerm2 that was already running polluted.</p>
 <p><strong>Re-injection (<code>restore_current</code>).</strong> <code>restore</code> reuses exactly these delivery paths, but aimed at the session the command runs <em>in</em> rather than one just spawned — iTerm2 by <code>ITERM_SESSION_ID</code>, Windows Terminal by the foreground <code>wt</code> window (Windows shares the launch-time <code>_paste_command</code> helper). It sends both <code>/color</code> and <code>/rename</code>. See <a href="../decisions/0009-restore-pane-identity.md">ADR 0009</a>.</p>
 <p><strong>Readiness.</strong> Both wait before injecting: after the configured <code>color_delay</code>, iTerm2 <code>_wait_ready</code> polls the pane's screen text for markers (<code>"shift+tab"</code>, <code>"auto-accept"</code>, …); the Windows backend polls the window title until it carries the pane name (Claude sets it via <code>-n</code>) so the command lands in a ready prompt, not a booting TUI.</p>
-<h2>Gotchas worth remembering</h2>
+<h2 id="gotchas-worth-remembering">Gotchas worth remembering</h2>
 <ul><li>The model is uniform — real desktop gaps on both platforms, no compaction anywhere.</li><li><code>wt</code> has <strong>no per-pane text API</strong> (unlike iTerm2's <code>send-text</code>); <code>/color</code> therefore needs real window focus on Windows, which is the one thing the injection path must get right.</li><li>Set ctypes arg/restypes for any Win32 call taking an <code>HWND</code>, or 64-bit handles truncate.</li><li>Placement compensates for the DWM invisible border; skipping that leaves visible seams between adjacent panes.</li></ul>
 </main></body></html>

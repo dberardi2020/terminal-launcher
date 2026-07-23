@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,21 +19,23 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>0006 — Workspace reordering affordance</h1>
+<h1 id="0006-workspace-reordering-affordance">0006 — Workspace reordering affordance</h1>
 <p><strong>Status:</strong> Accepted · <strong>Date:</strong> 2026-07-16</p>
-<h2>Context</h2>
+<h2 id="context">Context</h2>
 <p>Gallery cards could only be nudged one step with inline <code>◀ ▶</code> arrows (<code>move_workspace</code>, ±1). We wanted coarse moves too — jump to front / end — and had to decide <em>where</em> the reordering controls live. The full option set is recorded here deliberately: this is a reversible UI affordance and the choice may change.</p>
-<h2>Options considered</h2>
-<table><thead><tr><th>Option</th><th>Shape</th><th>Trade-off</th></tr></thead><tbody><tr><td><strong>A. Arrows + Jumps in ⋯ (chosen)</strong></td><td>Keep inline <code>◀ ▶</code> for single-step; add <strong>Jump to Front</strong> / <strong>Jump to End</strong> to the existing ⋯ menu</td><td>Smallest change; keeps the familiar direct control; adds only the coarse moves that were missing; no new persistent chrome</td></tr><tr><td>B. Inline <code>⏮ ◀ ▶ ⏭</code></td><td>Replace the arrows with four icon buttons per card</td><td>One click, fully direct — but four small buttons per card is visually busy</td></tr><tr><td>C. Arrange row under a full-width Launch</td><td>Make Launch full-width; put <code>⏮ ◀ ▶ ⏭</code> on their own row beneath it</td><td>Always visible, no menu digging — but adds height to every card</td></tr><tr><td>D. Drag-and-drop via a grip handle</td><td>A <code>⠿</code> grip; drag a card by the grip to reorder anywhere (grip so drag doesn't fight click-to-load)</td><td>Best feel by far — but the most implementation and the most fragile in a wrapping grid</td></tr><tr><td>E. Nested ⋯ → Arrange →</td><td>All four moves inside an "Arrange →" submenu off ⋯</td><td>Tidiest cards — but two clicks and submenu positioning to build</td></tr><tr><td>F. Flat: all four in ⋯</td><td>Move-to-front / forward / backward / to-end, all in the ⋯ menu, arrows removed</td><td>One home for admin actions — but hides the common single-step nudge behind a menu</td></tr></tbody></table>
-<h2>Decision</h2>
+<h2 id="options-considered">Options considered</h2>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>Shape</th><th>Trade-off</th></tr></thead><tbody><tr><td><strong>A. Arrows + Jumps in ⋯ (chosen)</strong></td><td>Keep inline <code>◀ ▶</code> for single-step; add <strong>Jump to Front</strong> / <strong>Jump to End</strong> to the existing ⋯ menu</td><td>Smallest change; keeps the familiar direct control; adds only the coarse moves that were missing; no new persistent chrome</td></tr><tr><td>B. Inline <code>⏮ ◀ ▶ ⏭</code></td><td>Replace the arrows with four icon buttons per card</td><td>One click, fully direct — but four small buttons per card is visually busy</td></tr><tr><td>C. Arrange row under a full-width Launch</td><td>Make Launch full-width; put <code>⏮ ◀ ▶ ⏭</code> on their own row beneath it</td><td>Always visible, no menu digging — but adds height to every card</td></tr><tr><td>D. Drag-and-drop via a grip handle</td><td>A <code>⠿</code> grip; drag a card by the grip to reorder anywhere (grip so drag doesn't fight click-to-load)</td><td>Best feel by far — but the most implementation and the most fragile in a wrapping grid</td></tr><tr><td>E. Nested ⋯ → Arrange →</td><td>All four moves inside an "Arrange →" submenu off ⋯</td><td>Tidiest cards — but two clicks and submenu positioning to build</td></tr><tr><td>F. Flat: all four in ⋯</td><td>Move-to-front / forward / backward / to-end, all in the ⋯ menu, arrows removed</td><td>One home for admin actions — but hides the common single-step nudge behind a menu</td></tr></tbody></table></div>
+<h2 id="decision">Decision</h2>
 <p><strong>Option A.</strong> The inline arrows stay for the frequent single-step nudge (direct manipulation where it matters); the two coarse "jump" moves join Rename / Duplicate / Delete in the ⋯ menu, above a divider. Jump items disable at the edges (front disabled when already first, end when already last).</p>
 <p>Backend: <code>reorder_workspace(name, position)</code> where <code>position ∈ {"front", "end"}</code>, alongside the existing <code>move_workspace(name, direction)</code> for the arrows.</p>
-<h2>Consequences</h2>
+<h2 id="consequences">Consequences</h2>
 <ul><li>Minimal new surface; no layout change to the cards.</li><li>Drag-and-drop (Option D) remains the upgrade path if the menu route feels clunky — it's the "make it feel great" option, recorded here so revisiting is a status flip, not a re-derivation.</li><li>This record is intentionally exhaustive on options because the affordance is expected to be re-evaluated with use.</li></ul>
 </main></body></html>

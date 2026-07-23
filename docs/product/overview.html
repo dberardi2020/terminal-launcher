@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,26 +19,28 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>Overview</h1>
-<h2>The problem</h2>
+<h1 id="overview">Overview</h1>
+<h2 id="the-problem">The problem</h2>
 <p>When you work with Claude Code, you often want <strong>more than one session open at once</strong> — each pointed at a different part of your work: docs in one, the backend in another, notes in a third. You want them <strong>laid out side by side</strong> so you can see them together, and you want the same arrangement back <strong>tomorrow</strong> without rebuilding it by hand every morning.</p>
 <p>Opening those terminals one at a time, sizing them, <code>cd</code>-ing each to the right place, and starting Claude with the right model in each — that's a chore you repeat constantly. Terminal Launcher removes it.</p>
-<h2>The solution</h2>
+<h2 id="the-solution">The solution</h2>
 <p>Define your terminals <strong>once</strong> as reusable <strong>panes</strong>, arrange them into a <strong>layout</strong>, save that arrangement as a <strong>workspace</strong>, and launch the whole tiled set with <strong>one command</strong>:</p>
 <pre><code>terminal-launcher launch Docs</code></pre>
 <p>That opens every pane in the workspace at once — tiled in its layout, each in its target directory, each running Claude Code with its assigned model, each named and color-tagged so you know at a glance which is which.</p>
 <p>There are two ways to build a workspace: a scriptable <strong>CLI</strong> (<code>new</code> / <code>edit</code>) and a native <strong>visual composer</strong> (<code>terminal-launcher gui</code>) — a drag-free, click-to-fill window for arranging slots and managing panes. Both read and write the same config.</p>
-<h2>How it's built</h2>
+<h2 id="how-it-s-built">How it's built</h2>
 <p>Terminal Launcher is a <strong>thin Python core</strong> — config plus a composition model — driving a <strong>terminal backend</strong> behind one small interface: iTerm2 on macOS, Windows Terminal on Windows. The core is platform-agnostic; each backend is a thin driver that spawns and places native windows. Adding a platform is one new module, not a fork.</p>
 <p><strong>The load-bearing principle:</strong> the pane set is <strong>data, not structure</strong>. Nothing about any particular set of panes is baked in — any names, targets, and colors work. Panes and workspaces are <em>your configuration</em>; the composer and launcher are the product. That is what lets one install serve any workflow.</p>
-<h2>Who it's for</h2>
+<h2 id="who-it-s-for">Who it's for</h2>
 <ul><li>Anyone who runs <strong>several Claude Code sessions in parallel</strong> and wants them tiled, named, and reproducible.</li><li>People who want a <strong>saved, one-command</strong> way back into a familiar multi-terminal setup instead of rebuilding it each session.</li><li>macOS (verified end-to-end on iTerm2) and Windows (native Windows Terminal backend) — see <a href="platforms-and-status.md">Platforms &amp; Status</a>.</li></ul>
-<h2>Next</h2>
+<h2 id="next">Next</h2>
 <ul><li>The vocabulary behind all of this → <a href="concepts.md">Concepts</a>.</li><li>Getting it running and composing your first workspace → <a href="user-guide.md">User Guide</a>.</li></ul>
 </main></body></html>

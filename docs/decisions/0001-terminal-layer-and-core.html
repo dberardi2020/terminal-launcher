@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,31 +19,33 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>0001 — Terminal layer: WezTerm + a thin Python core</h1>
+<h1 id="0001-terminal-layer-wezterm-a-thin-python-core">0001 — Terminal layer: WezTerm + a thin Python core</h1>
 <p><strong>Status:</strong> Accepted · <strong>Date:</strong> 2026-07-10</p>
 <blockquote>
 <p><strong>Amended by <a href="0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a> (2026-07-16):</strong> on <strong>macOS</strong> the terminal layer is now <strong>iTerm2</strong>, not WezTerm — WezTerm could not give reliable multi-window control on macOS (<code>--class</code> is X11/Wayland-only). WezTerm remains the backend everywhere else. The thin-core / swappable-backend design recorded here is unchanged — it is exactly what let the macOS layer be a single new module.</p>
 </blockquote>
-<h2>Context</h2>
+<h2 id="context">Context</h2>
 <p>The single load-bearing question behind the whole tool: <strong>how does "compose an arrangement of terminals and launch them" actually work?</strong> Answering it splits into two independent decisions — the <strong>terminal layer</strong> (what spawns and arranges terminals) and the <strong>UI toolkit</strong> (what the composer is written in). This ADR records the terminal layer; the UI is <a href="0003-visual-composer-pywebview.md">ADR 0003</a>.</p>
 <p>The environment at decision time: macOS with <code>python3</code> (3.14, Homebrew) and Terminal.app only — no tmux, iTerm2, or WezTerm preinstalled. A "someday Windows build" is a stated goal, not aspirational.</p>
-<h2>Options considered</h2>
+<h2 id="options-considered">Options considered</h2>
 <p><strong>Terminal layer</strong> — real OS windows vs. multiplexer panes, and how scriptable:</p>
-<table><thead><tr><th>Option</th><th>Layout model</th><th>Scripted spawn</th><th>Cross-platform</th></tr></thead><tbody><tr><td><strong>WezTerm</strong></td><td>native splits <em>or</em> OS windows</td><td>Excellent — <code>wezterm cli spawn</code> / <code>split-pane</code> / <code>send-text</code> return pane-ids</td><td><strong>Yes</strong> (same <code>wezterm cli</code> on Mac + Windows)</td></tr><tr><td>tmux</td><td>panes in one window</td><td>Excellent — <code>split-window</code>, <code>send-keys</code></td><td>Yes, but single-window feel</td></tr><tr><td>iTerm2</td><td>native splits + windows</td><td>Good — AppleScript / Python API</td><td><strong>Mac-only</strong></td></tr><tr><td>kitty</td><td>native splits</td><td>Good — <code>kitty @</code> remote control</td><td>Yes</td></tr><tr><td>Terminal.app</td><td>OS windows</td><td>Limited — AppleScript, no real splits</td><td><strong>Mac-only</strong>, weakest</td></tr></tbody></table>
+<div class="tablewrap"><table><thead><tr><th>Option</th><th>Layout model</th><th>Scripted spawn</th><th>Cross-platform</th></tr></thead><tbody><tr><td><strong>WezTerm</strong></td><td>native splits <em>or</em> OS windows</td><td>Excellent — <code>wezterm cli spawn</code> / <code>split-pane</code> / <code>send-text</code> return pane-ids</td><td><strong>Yes</strong> (same <code>wezterm cli</code> on Mac + Windows)</td></tr><tr><td>tmux</td><td>panes in one window</td><td>Excellent — <code>split-window</code>, <code>send-keys</code></td><td>Yes, but single-window feel</td></tr><tr><td>iTerm2</td><td>native splits + windows</td><td>Good — AppleScript / Python API</td><td><strong>Mac-only</strong></td></tr><tr><td>kitty</td><td>native splits</td><td>Good — <code>kitty @</code> remote control</td><td>Yes</td></tr><tr><td>Terminal.app</td><td>OS windows</td><td>Limited — AppleScript, no real splits</td><td><strong>Mac-only</strong>, weakest</td></tr></tbody></table></div>
 <p><strong>Core language</strong> — the orchestration layer that reads config, resolves a workspace, and emits terminal-layer commands. Python was chosen for the <em>core</em> (not the plumbing): already on the Mac, no build step, one codebase for Mac + Windows, JSON in the stdlib, and it shells out to any terminal layer cleanly.</p>
-<h2>Decision</h2>
+<h2 id="decision">Decision</h2>
 <p><strong>WezTerm as the terminal layer, driven by a thin Python core.</strong></p>
 <p>An early spike built against Terminal.app (zero-install, real OS windows) but it is the weakest for programmatic layout and needs a separate, fragile keystroke path per platform. WezTerm was chosen instead and the Terminal.app path was dropped.</p>
-<h2>Rationale</h2>
+<h2 id="rationale">Rationale</h2>
 <ul><li><strong>Deterministic scripted layout.</strong> <code>wezterm cli spawn</code> / <code>split-pane</code> return pane-ids, so tiling is exact and repeatable — not a geometry guess.</li><li><strong>Reliable, native identity.</strong> <code>send-text --pane-id</code> delivers text to a <em>specific</em> pane without focus or Accessibility permissions. That is what makes <code>/color</code> injection functional rather than a keystroke gamble (see <a href="0002-identity-injection.md">ADR 0002</a>). Tab titles are first-class.</li><li><strong>Real cross-platform parity.</strong> <code>wezterm cli</code> is identical on macOS and Windows, so the "someday Windows" build reuses the <em>same</em> commands instead of forking into a platform-specific split. This is the decisive advantage over the Mac-only options.</li><li><strong>Thin Python core keeps the plumbing swappable.</strong> The core resolves a workspace into platform-agnostic <code>ResolvedSlot</code>s; only <code>wezterm.py</code> knows about WezTerm. A different terminal layer would be one new module.</li></ul>
 <p>The layout → split plan the launcher emits:</p>
 <ul><li><code>single</code> → one pane.</li><li><code>split</code> → pane 0, then split pane 0 to the <strong>right</strong>.</li><li><code>quad</code> → pane 0; split <strong>right</strong> of 0; split <strong>below</strong> 0; split <strong>below</strong> 1 → balanced 2×2.</li></ul>
-<h2>Consequences</h2>
+<h2 id="consequences">Consequences</h2>
 <ul><li>WezTerm becomes a hard dependency (<code>brew install --cask wezterm</code>). Acceptable: it is the source of the reliability and portability above.</li><li>The core never manages screen geometry — WezTerm owns tiling. <code>model.py</code> carries no window-rect math.</li><li>Verified end-to-end on macOS (spawn, tile, name, title, color). Windows is unverified but built on the same CLI surface.</li><li>If WezTerm is ever unavailable, the fallback is a <em>new launcher module</em> (tmux is the most portable candidate), not a rewrite of the core.</li><li><strong>Revisited by <a href="0004-heterogeneous-panes-and-window-placement.md">ADR 0004</a>:</strong> WezTerm's in-terminal tiling cannot hold GUI apps (Chrome, Finder). Supporting <em>heterogeneous</em> workspaces reintroduces an OS-window placement layer for the mixed case — the all-terminal path keeps WezTerm.</li><li><strong>Amended by <a href="0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a>:</strong> the macOS terminal layer moved to <strong>iTerm2</strong> — WezTerm's macOS multi-window control was unreliable. This ADR still governs the core and the WezTerm (non-macOS) path.</li></ul>
 </main></body></html>

@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,24 +19,26 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>TLA-0020 — A family of management commands</h1>
+<h1 id="tla-0020-a-family-of-management-commands">TLA-0020 — A family of management commands</h1>
 <p>Installing, updating, removing and repairing Terminal Launcher is currently a set of per-platform scripts a user has to know about. There's no single, discoverable way to ask the tool to manage itself.</p>
-<h2>Current state — what a user has to know</h2>
-<table><thead><tr><th>Task</th><th>Today</th></tr></thead><tbody><tr><td>Install the CLI</td><td><code>pipx install git+…</code>, or clone and <code>python -m terminal_launcher</code></td></tr><tr><td>Install the Dock app (macOS)</td><td><code>./packaging/install-macos.sh</code></td></tr><tr><td>Install the Start Menu entry (Windows)</td><td><code>packaging\windows\install-shortcut.ps1</code></td></tr><tr><td>Install <code>/restore</code></td><td><code>integrations/claude-code/install.sh</code> <strong>or</strong> <code>install.ps1</code></td></tr><tr><td>Update anything</td><td>re-run whichever of the above applies</td></tr><tr><td>Uninstall</td><td>delete things by hand</td></tr><tr><td>Repair</td><td>no path at all</td></tr></tbody></table>
+<h2 id="current-state-what-a-user-has-to-know">Current state — what a user has to know</h2>
+<div class="tablewrap"><table><thead><tr><th>Task</th><th>Today</th></tr></thead><tbody><tr><td>Install the CLI</td><td><code>pipx install git+…</code>, or clone and <code>python -m terminal_launcher</code></td></tr><tr><td>Install the Dock app (macOS)</td><td><code>./packaging/install-macos.sh</code></td></tr><tr><td>Install the Start Menu entry (Windows)</td><td><code>packaging\windows\install-shortcut.ps1</code></td></tr><tr><td>Install <code>/restore</code></td><td><code>integrations/claude-code/install.sh</code> <strong>or</strong> <code>install.ps1</code></td></tr><tr><td>Update anything</td><td>re-run whichever of the above applies</td></tr><tr><td>Uninstall</td><td>delete things by hand</td></tr><tr><td>Repair</td><td>no path at all</td></tr></tbody></table></div>
 <p>Four installers, two of them platform-paired, and no uninstall or update story.</p>
-<h2>The failure mode that motivates it</h2>
+<h2 id="the-failure-mode-that-motivates-it">The failure mode that motivates it</h2>
 <p>The <code>/restore</code> installers <strong>bake absolute paths</strong> (interpreter + entry point) into <code>~/.claude/commands/restore.md</code> at install time. Move or rename the checkout and the command silently breaks — it points at something that no longer exists, and nothing tells the user why. A <code>repair</code> verb that re-resolves and rewrites those paths is the concrete case; "my install got weird" is the general one.</p>
 <p>Related known repair cases:</p>
 <ul><li>Missing or rebuilt venv (the interpreter path goes stale the same way).</li><li>An unsigned <code>.app</code> re-prompting for Automation permission after each rebuild (<a href="../tickets.md">TLA-0003</a>).</li><li>A stale Dock icon after an in-place reinstall (macOS caches by path).</li></ul>
-<h2>Candidate surface</h2>
+<h2 id="candidate-surface">Candidate surface</h2>
 <p><code>update</code> · <code>install</code> · <code>uninstall</code> · <code>reinstall</code> · <code>repair</code> — as Claude Code skills, CLI verbs, or both. Worth deciding <em>which</em>: a CLI verb works everywhere and is scriptable; a skill is more discoverable from inside a pane, which is where users already are.</p>
-<h2>Overlap — decide before building</h2>
+<h2 id="overlap-decide-before-building">Overlap — decide before building</h2>
 <p>This is not a fresh idea, and three tickets now circle the same ground:</p>
 <ul><li><strong><a href="../tickets.md">TLA-0012</a></strong> — design the install/setup and maintenance/update flows for going live. The umbrella.</li><li><strong><a href="../tickets.md">TLA-0010</a></strong> — streamline pushing updates to the installed Dock app (py2app alias mode, symlinked package, or running the GUI from source).</li><li><strong>TLA-0020</strong> (this) — the user-facing command surface over all of it.</li></ul>
 <p><strong>First action on this ticket is a merge decision, not code:</strong> does TLA-0020 supersede TLA-0012 and TLA-0010, or is it the interface layer on top of them? Building the commands before settling that risks a third partial answer to the same question.</p>

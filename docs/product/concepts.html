@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,34 +19,36 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>Concepts</h1>
+<h1 id="concepts">Concepts</h1>
 <p>The whole product is five words. Learn these and you understand Terminal Launcher.</p>
-<h2>Pane</h2>
+<h2 id="pane">Pane</h2>
 <p>A <strong>pane</strong> is a single terminal with a persistent <strong>identity</strong> — not a window position, but a <em>who / where</em>: a named context you return to. An identity is four fields:</p>
-<table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody><tr><td><strong>Name</strong></td><td>What this pane is — e.g. <code>Docs</code>, <code>Backend</code>, <code>Notes</code>.</td></tr><tr><td><strong>Color</strong></td><td>A visual tag so the pane is recognizable at a glance, both in the config and (optionally) inside the launched Claude session via <code>/color</code>.</td></tr><tr><td><strong>Target</strong></td><td>The working directory it opens against (e.g. <code>~/code/project</code>).</td></tr><tr><td><strong>Model</strong></td><td>Which Claude model that pane runs — overridable per slot at compose time.</td></tr></tbody></table>
+<div class="tablewrap"><table><thead><tr><th>Field</th><th>Meaning</th></tr></thead><tbody><tr><td><strong>Name</strong></td><td>What this pane is — e.g. <code>Docs</code>, <code>Backend</code>, <code>Notes</code>.</td></tr><tr><td><strong>Color</strong></td><td>A visual tag so the pane is recognizable at a glance, both in the config and (optionally) inside the launched Claude session via <code>/color</code>.</td></tr><tr><td><strong>Target</strong></td><td>The working directory it opens against (e.g. <code>~/code/project</code>).</td></tr><tr><td><strong>Model</strong></td><td>Which Claude model that pane runs — overridable per slot at compose time.</td></tr></tbody></table></div>
 <p>Panes are <strong>reusable</strong>: define <code>Docs</code> once and drop it into as many workspaces as you like. Colors come from a small named set (blue, orange, red, purple, green, cyan, pink, gray).</p>
-<h2>Layout</h2>
+<h2 id="layout">Layout</h2>
 <p>A <strong>layout</strong> is the shape of the arrangement — how many panes and how they're divided on screen:</p>
-<table><thead><tr><th>Layout</th><th>Shape</th></tr></thead><tbody><tr><td><strong>Single</strong></td><td>One pane, full window.</td></tr><tr><td><strong>Split</strong></td><td>Two panes, side by side.</td></tr><tr><td><strong>Combo</strong></td><td>Three panes — one full-height pane, two stacked beside it.</td></tr><tr><td><strong>Quad</strong></td><td>Four panes in a balanced 2×2 grid.</td></tr></tbody></table>
+<div class="tablewrap"><table><thead><tr><th>Layout</th><th>Shape</th></tr></thead><tbody><tr><td><strong>Single</strong></td><td>One pane, full window.</td></tr><tr><td><strong>Split</strong></td><td>Two panes, side by side.</td></tr><tr><td><strong>Combo</strong></td><td>Three panes — one full-height pane, two stacked beside it.</td></tr><tr><td><strong>Quad</strong></td><td>Four panes in a balanced 2×2 grid.</td></tr></tbody></table></div>
 <p><strong>Split</strong> and <strong>Combo</strong> can be <strong>flipped</strong> horizontally — which side the main pane takes — and the flip is saved per workspace. (Single has nothing to mirror; Quad is already symmetric.)</p>
-<h2>Workspace</h2>
+<h2 id="workspace">Workspace</h2>
 <p>A <strong>workspace</strong> is a named, saved <strong>composition</strong>: a layout plus a specific pane assigned to each slot. Workspaces are the everyday entry point — you pick one and launch.</p>
 <p>A slot may be left <strong>intentionally empty</strong>. On launch an empty slot is <em>dropped</em>, not run as a blank shell — so a three-of-four-filled quad launches as three real panes, never one dead rectangle. (Exactly <em>how</em> the gap is handled differs by backend; see <a href="platforms-and-status.md">Platforms &amp; Status</a>.)</p>
-<h2>Composer</h2>
+<h2 id="composer">Composer</h2>
 <p>The <strong>composer</strong> is the interactive builder: choose a layout, then assign a pane and a model to each slot. It comes in two forms over the <strong>same</strong> config:</p>
 <ul><li><strong>CLI</strong> (<code>new</code> / <code>edit</code>) — headless and scriptable, prompt-driven in the terminal.</li><li><strong>Visual composer</strong> (<code>terminal-launcher gui</code>) — a native window. A launchpad of workspace cards sits on top; below is a live composer where you pick a layout and <strong>click a slot to fill it</strong>. The slot editor is an inline side panel (headed <em>“Editing &amp;lt;position&amp;gt;”</em>) with a <strong>click-to-fill</strong> pane list and <strong>model chips</strong> (including a <strong>Default</strong> that uses the pane's own model). Panes are created and edited inline in that same panel — no separate screen.</li></ul>
-<h2>Actions</h2>
+<h2 id="actions">Actions</h2>
 <p>What you can <em>do</em>, in either composer:</p>
-<table><thead><tr><th>Action</th><th>Meaning</th></tr></thead><tbody><tr><td><strong>Launch</strong></td><td>Open every pane in the composition at once, tiled in its layout.</td></tr><tr><td><strong>New</strong></td><td>Compose and save a fresh workspace.</td></tr><tr><td><strong>Edit</strong></td><td>Load a saved workspace, change it, and persist.</td></tr><tr><td><strong>Delete</strong></td><td>Remove a workspace.</td></tr><tr><td><strong>Pane-new</strong></td><td>Add a new reusable pane (a terminal identity) to the registry.</td></tr></tbody></table>
-<h2>What actually runs in a pane</h2>
+<div class="tablewrap"><table><thead><tr><th>Action</th><th>Meaning</th></tr></thead><tbody><tr><td><strong>Launch</strong></td><td>Open every pane in the composition at once, tiled in its layout.</td></tr><tr><td><strong>New</strong></td><td>Compose and save a fresh workspace.</td></tr><tr><td><strong>Edit</strong></td><td>Load a saved workspace, change it, and persist.</td></tr><tr><td><strong>Delete</strong></td><td>Remove a workspace.</td></tr><tr><td><strong>Pane-new</strong></td><td>Add a new reusable pane (a terminal identity) to the registry.</td></tr></tbody></table></div>
+<h2 id="what-actually-runs-in-a-pane">What actually runs in a pane</h2>
 <p>A <strong>filled</strong> slot runs <code>claude -n &lt;name&gt; --model &lt;model&gt;</code> with the pane's target as its working directory. An <strong>empty</strong> slot launches nothing. After a pane starts, its identity is applied: the pane's title is set to the pane name, and — optionally — <code>/color &lt;name&gt;</code> is injected into the Claude session so the prompt bar carries the pane's color.</p>
-<h2>The genericness principle</h2>
+<h2 id="the-genericness-principle">The genericness principle</h2>
 <p>Panes and workspaces are <strong>data</strong> — your configuration. The composer and launcher are the <strong>product</strong>. Ship any pane set you like; nothing about the tool assumes a particular one.</p>
 <hr>
 <p><em>This is the single source for the concept model. The decisions behind it live in <a href="../decisions/"><code>decisions/</code></a>; how it's realized in code is <a href="../technical/architecture.md"><code>technical/architecture.md</code></a>.</em></p>

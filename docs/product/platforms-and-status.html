@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,26 +19,28 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>Platforms &amp; Status</h1>
-<h2>Requirements</h2>
+<h1 id="platforms-status">Platforms &amp; Status</h1>
+<h2 id="requirements">Requirements</h2>
 <ul><li><strong>Python 3.10+</strong> (uses <code>from __future__ import annotations</code>; developed on 3.14).</li><li><strong>Claude Code</strong> (<code>claude</code>) on your <code>PATH</code> — what each filled pane runs.</li><li><strong>A terminal backend</strong> — the layer that actually spawns and tiles the panes:</li></ul>
-<table><thead><tr><th>Platform</th><th>Backend</th><th>Install</th></tr></thead><tbody><tr><td><strong>macOS</strong></td><td><a href="https://iterm2.com">iTerm2</a></td><td><code>brew install --cask iterm2</code></td></tr><tr><td><strong>Windows</strong></td><td><a href="https://aka.ms/terminal">Windows Terminal</a></td><td><code>winget install Microsoft.WindowsTerminal</code></td></tr></tbody></table>
+<div class="tablewrap"><table><thead><tr><th>Platform</th><th>Backend</th><th>Install</th></tr></thead><tbody><tr><td><strong>macOS</strong></td><td><a href="https://iterm2.com">iTerm2</a></td><td><code>brew install --cask iterm2</code></td></tr><tr><td><strong>Windows</strong></td><td><a href="https://aka.ms/terminal">Windows Terminal</a></td><td><code>winget install Microsoft.WindowsTerminal</code></td></tr></tbody></table></div>
 <p>Other platforms have no native backend yet; there the launcher reports no terminal and does nothing.</p>
-<h2>How the two backends work</h2>
+<h2 id="how-the-two-backends-work">How the two backends work</h2>
 <p>Both realize the <strong>same</strong> model: every filled slot is its own OS window placed at its position on screen, and an empty slot is left as a <strong>real desktop gap</strong> — for every layout, on both platforms. A full quad is four windows in the four quadrants; a partial quad is however-many windows with gaps where the empties are.</p>
-<table><thead><tr><th></th><th>What a launch does</th></tr></thead><tbody><tr><td><strong>iTerm2 (macOS)</strong></td><td>a window per filled slot via the iTerm2 API, placed at its rect</td></tr><tr><td><strong>Windows Terminal (Windows)</strong></td><td>a <code>wt</code> window per filled slot, placed with <code>SetWindowPos</code></td></tr></tbody></table>
+<div class="tablewrap"><table><thead><tr><th></th><th>What a launch does</th></tr></thead><tbody><tr><td><strong>iTerm2 (macOS)</strong></td><td>a window per filled slot via the iTerm2 API, placed at its rect</td></tr><tr><td><strong>Windows Terminal (Windows)</strong></td><td>a <code>wt</code> window per filled slot, placed with <code>SetWindowPos</code></td></tr></tbody></table></div>
 <p>They differ only in the mechanics of spawning and identity injection, never in the resulting layout. <strong>An empty slot never launches a blank shell</strong> — it's simply not there.</p>
-<h2>Permissions</h2>
+<h2 id="permissions">Permissions</h2>
 <ul><li><strong>macOS / iTerm2</strong> — the first launch prompts <strong>once</strong> for <strong>Automation</strong> permission (“Terminal Launcher wants to control iTerm2”). This is how iTerm2's Python API is driven. If denied, launching fails with a pointer to <strong>System Settings › Privacy &amp; Security › Automation</strong>. Note this is Automation, <em>not</em> Accessibility — a lighter, one-time consent.</li><li><strong>Windows / Windows Terminal</strong> — <strong>no permission prompt.</strong> Spawning <code>wt</code> windows and positioning them needs nothing special.</li><li><strong>Identity injection</strong> (<code>/color</code>, session name, title) targets a specific window/session directly. On macOS it needs no extra permission; on Windows it briefly focuses the target window to paste the command.</li></ul>
-<h2>Platform status</h2>
+<h2 id="platform-status">Platform status</h2>
 <ul><li><strong>macOS</strong> — <strong>working and verified end-to-end</strong> (spawn, tile, name, title, color) on the <strong>iTerm2</strong> backend. The actively used, tested path.</li><li><strong>Windows</strong> — <strong>native Windows Terminal backend, verified end-to-end.</strong> Geometry, window discovery, placement, and DWM-border compensation are live-tested (the visible frame lands pixel-exact), and the <code>claude</code> spawn + <code>/color</code> clipboard-paste injection is confirmed in real sessions — including <code>/restore</code> re-injection (see <a href="../decisions/0009-restore-pane-identity.md">ADR 0009</a>). Placement is primary-monitor only for now.</li><li><strong>Other platforms</strong> — no native backend; the launcher reports no terminal.</li></ul>
-<h2>Deferred / not yet built</h2>
+<h2 id="deferred-not-yet-built">Deferred / not yet built</h2>
 <ul><li><strong>Multi-monitor placement</strong> — slot rectangles derive from the primary monitor's work area only, so a workspace always lands on the primary display (TLA-0014).</li><li><strong>Heterogeneous panes</strong> — non-terminal panes (a browser, a file manager) tiled alongside Claude terminals. This needs a general OS-window placement layer. Direction recorded in <a href="../decisions/0004-heterogeneous-panes-and-window-placement.md">ADR 0004</a>; not scheduled.</li><li><strong>Packaging</strong> — a double-clickable build of the visual composer exists for macOS (py2app, in <a href="../../packaging/"><code>packaging/</code></a>) and Windows (PyInstaller, in <a href="../../packaging/windows/"><code>packaging/windows/</code></a>); an unsigned macOS bundle may re-prompt for Automation after each rebuild.</li></ul>
 <hr>
 <p><em>The reasoning behind the uniform one-window-per-pane model and the Windows Terminal backend lives in <a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md">ADR 0008</a> (building on <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">0007</a> and <a href="../decisions/0001-terminal-layer-and-core.md">0001</a>).</em></p>

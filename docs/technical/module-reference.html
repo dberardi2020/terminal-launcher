@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,58 +19,60 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>Module Reference</h1>
+<h1 id="module-reference">Module Reference</h1>
 <p>A map of every module: what it owns, its key surface, and how it connects. Deep dives live in <a href="backends.md">Backends</a> and <a href="data-model-and-config.md">Data Model &amp; Config</a>; this is the index.</p>
 <p>Dependency direction: <strong>front-ends → core → backend seam → backends</strong>, with <code>diag</code> underneath everything.</p>
 <hr>
-<h2>Core</h2>
-<h3><code>config.py</code></h3>
+<h2 id="core">Core</h2>
+<h3 id="config-py"><code>config.py</code></h3>
 <p><strong>Owns</strong> the single JSON config: load, save, seed, defaults, and the color map.</p>
 <ul><li><code>default_config_path()</code> — resolution order: <code>TERMINAL_LAUNCHER_CONFIG</code> env → <code>$XDG_CONFIG_HOME/terminal-launcher/workspaces.json</code> → <code>~/.config/…</code>.</li><li><code>load(path)</code> — reads UTF-8 JSON and backfills missing <code>DEFAULT_CONFIG</code> keys / <code>settings</code> sub-keys (top-level defaults are deep-copied to avoid aliasing).</li><li><code>save(path, config)</code> — <strong>atomic</strong>: writes <code>*.tmp</code>, then <code>replace()</code> so a crash never truncates the config.</li><li><code>seed_from_example(path)</code> / <code>example_config_path()</code> — create a starter config from the bundled <code>workspaces.example.json</code>.</li><li><code>color_hex(name)</code> — named color → hex, default gray <code>#8a8a9a</code>.</li><li><strong>Constants:</strong> <code>COLORS</code> (8 named→hex), <code>LAYOUT_CAPACITY</code> <code>{single:1, split:2, combo:3, quad:4}</code>, <code>DEFAULT_CONFIG</code>. Full schema in <a href="data-model-and-config.md">Data Model &amp; Config</a>.</li></ul>
 <p><em>Imports:</em> stdlib only. <em>Consumed by:</em> both front-ends, <code>model.py</code>.</p>
-<h3><code>model.py</code></h3>
+<h3 id="model-py"><code>model.py</code></h3>
 <p><strong>Owns</strong> the platform-agnostic composition engine: workspace → concrete slots.</p>
 <ul><li><code>@dataclass ResolvedSlot</code> — <code>index, empty, pane_id, name, color, color_hex, target, model</code>.</li><li><code>resolve_workspace(config, ws)</code> — returns exactly <code>LAYOUT_CAPACITY[layout]</code> slots, each filled or <code>empty</code>. Applies <strong>model precedence</strong> slot → pane → global; expands <code>target</code>. Raises <code>CompositionError</code> on unknown layout or dangling pane ref.</li><li><code>expand_target(raw)</code> — <code>expanduser</code> then <code>expandvars</code>, normalized.</li><li><code>find_workspace(config, name)</code> — case-insensitive, trimmed lookup.</li></ul>
 <p><em>Imports:</em> <code>LAYOUT_CAPACITY</code>, <code>color_hex</code> from <code>config</code>. <em>Consumed by:</em> both front-ends, both backends (via the resolved slots).</p>
-<h3><code>layouts.py</code></h3>
+<h3 id="layouts-py"><code>layouts.py</code></h3>
 <p><strong>Owns</strong> the terminal-agnostic split-plans and the flip transform. Unit-tested; the intended single source of truth for geometry.</p>
 <ul><li><code>plan(layout, flip=False)</code> — returns a list of <code>(direction, source-slot-index)</code> steps for each slot after the first. Flip swaps <code>right↔left</code> for split/combo only (<code>bottom</code> untouched).</li><li><strong>Constants:</strong> <code>SPLIT_PLAN</code> (<code>split:[("right",0)]</code>, <code>combo:[("right",0),("bottom",1)]</code>, <code>quad:[("right",0),("bottom",0),("bottom",1)]</code>), <code>CAPACITY</code>, <code>FLIPPABLE={split,combo}</code>.</li></ul>
 <p><em>Imports:</em> none. <em>Consumed by:</em> both backends import <code>FLIPPABLE</code> (for the flip mirror); <code>CAPACITY</code> derives from <code>SPLIT_PLAN</code> and is cross-checked against <code>config.LAYOUT_CAPACITY</code> in the tests. <code>plan()</code>/<code>SPLIT_PLAN</code> are no longer on the launch path — the native backends place by slot <em>rectangle</em>, not split direction.</p>
-<h3><code>restore.py</code></h3>
+<h3 id="restore-py"><code>restore.py</code></h3>
 <p><strong>Owns</strong> re-applying a launched pane's in-session identity (<code>/color</code> + <code>/rename</code>) after Claude Code's <code>/clear</code> wipes it. Detection is cross-platform; injection is delegated to the backend seam — the same split the launcher uses.</p>
 <ul><li><code>detect(config, config_path, cwd=None)</code> — matches <code>cwd</code> against each pane's <code>target</code> (longest match wins), with a per-session sentinel keyed by <code>ITERM_SESSION_ID</code> / <code>WT_SESSION</code> that remembers the identity after you <code>cd</code> away. Returns <code>(id, name, color, target)</code> or <code>None</code>. Unit-tested (<code>tests/test_restore.py</code>).</li><li><code>restore(config_path, detect_only=False)</code> — detect, then <code>backend.restore_identity(color, name)</code> unless <code>detect_only</code>.</li></ul>
 <p><em>Imports:</em> <code>config</code>, <code>backend</code>. <em>Consumed by:</em> the <code>restore</code> CLI verb and the Claude Code <code>/restore</code> command (<a href="../../integrations/claude-code/README.md"><code>integrations/claude-code/</code></a>).</p>
 <hr>
-<h2>Backend seam</h2>
-<h3><code>backend.py</code></h3>
+<h2 id="backend-seam">Backend seam</h2>
+<h3 id="backend-py"><code>backend.py</code></h3>
 <p><strong>Owns</strong> platform selection — a pure router, no terminal logic.</p>
 <ul><li><code>_impl()</code> — <code>iterm2_backend.available()</code> (macOS + iTerm2) → <code>iterm2_backend</code>; <code>windows_terminal_backend.available()</code> (Windows + <code>wt</code>) → that; else <code>None</code> (no native backend — <code>available()</code> is False, <code>launch()</code> raises). Re-evaluated on every call, no caching.</li><li>Re-exports the contract: <code>available()</code>, <code>describe(layout, slots, flip)</code>, <code>launch(layout, slots, inject_color, workspace_name, color_delay, flip)</code>, plus <code>name()</code> and <code>install_hint()</code>.</li><li><code>restore_identity(color, name)</code> — routes to the active backend's <code>restore_current</code> (re-inject identity into the <em>current</em> session); the seam behind the <code>restore</code> verb.</li><li><code>scrub_bundled_python_env()</code> — pops <code>PYTHONHOME</code>/<code>PYTHONPATH</code>, which the py2app bundle points at its own <code>Contents/Resources</code>. A cold start launches iTerm2 itself, so without this every pane inherits them and any <code>python</code> in a pane resolves the <em>bundle's</em> stdlib. Called at both entry points (<code>cli.main</code>, <code>gui.run</code>) before anything spawns.</li></ul>
-<h3><code>iterm2_backend.py</code> · <code>windows_terminal_backend.py</code></h3>
+<h3 id="iterm2backend-py-windowsterminalbackend-py"><code>iterm2_backend.py</code> · <code>windows_terminal_backend.py</code></h3>
 <p>The two native terminal backends behind the contract — full treatment in <a href="backends.md">Backends</a>. Both realize the <strong>same</strong> model: one OS window per filled slot placed at its rect, with real desktop gaps for empties (no compaction). In brief:</p>
 <ul><li><strong><code>iterm2_backend.py</code></strong> — async, drives the iTerm2 Python API on its own event loop; a window per slot, <code>async_set_frame</code> to the Cocoa rect. Auth via Automation permission. <code>restore_current(color, name)</code> re-injects <code>/color</code> + <code>/rename</code> into the current session (resolved by <code>ITERM_SESSION_ID</code>).</li><li><strong><code>windows_terminal_backend.py</code></strong> — pure <code>ctypes</code>; spawns <code>wt -w new</code> per slot, finds the window by class-name diff, and <code>SetWindowPos</code>es it to the Win32 rect (DPI + DWM compensation). <code>/color</code> via focus + clipboard paste (no <code>send-text</code> equivalent). No permission prompt. <code>restore_current(color, name)</code> pastes <code>/color</code> + <code>/rename</code> into the current wt window (the shared <code>_paste_command</code> helper).</li></ul>
 <hr>
-<h2>Front-ends</h2>
-<h3><code>cli.py</code></h3>
+<h2 id="front-ends">Front-ends</h2>
+<h3 id="cli-py"><code>cli.py</code></h3>
 <p><strong>Owns</strong> the argparse surface and the interactive composer wizard.</p>
 <ul><li><code>build_parser()</code> — verbs: <code>list</code>, <code>panes</code>, <code>preview &lt;name&gt;</code>, <code>launch &lt;name&gt; [--dry-run] [--inject-color]</code>, <code>new</code>, <code>edit &lt;name&gt;</code>, <code>delete &lt;name&gt;</code>, <code>pane-new</code>, <code>gui</code>, <code>init</code>, <code>logs [--lines]</code>, <code>restore [--detect-only]</code>, plus a global <code>--config</code>.</li><li><code>cmd_restore(path, args)</code> — re-applies this pane's identity via <code>restore.py</code>; prints tab-delimited <code>DETECTED</code> / <code>RESTORED</code> / <code>UNKNOWN</code> / <code>ERROR</code> lines (exit 0/0/2/1) so the Claude Code <code>/restore</code> command can interpret the result.</li><li><code>main()</code> — resolves the config path, chooses a load policy per verb (<code>_load_or_die</code> vs <code>_load_or_seed</code> vs empty for <code>init</code>), dispatches, returns <code>130</code> on <code>KeyboardInterrupt</code>.</li><li><strong>Wizard:</strong> <code>_compose_workspace(config, existing=None)</code> drives layout choice → per-slot <code>_choose_pane</code> / <code>_choose_model</code> → optional flip (split/combo only). <code>_interactive_pane(config)</code> builds a pane. Every write-back is "mutate <code>config</code>, then <code>config.save</code>".</li></ul>
 <p><em>Note:</em> a slot stores <code>model</code> only when it <strong>overrides</strong> the pane default — inherited models are left off (the "Default" chip).</p>
-<h3><code>gui.py</code></h3>
+<h3 id="gui-py"><code>gui.py</code></h3>
 <p>&lt;a id="guipy"&gt;&lt;/a&gt;<strong>Owns</strong> the pywebview window and the JS↔Python bridge.</p>
 <ul><li><code>run(path)</code> — lazily imports <code>webview</code>, calls <code>diag.setup()</code> and <code>_inherit_login_path()</code> (merges the login-shell PATH so a Dock-launched <code>.app</code> can find <code>claude</code>/<code>iterm2</code>; a no-op on Windows), reads <code>web/builder.html</code> off disk, and <code>create_window(..., js_api=api, maximized=True)</code>.</li><li><code>class Api</code> — the bridge, exposed as <code>window.pywebview.api.*</code>. Every public method is wrapped in an exception tracer (<code>gui.py:71</code>) because pywebview otherwise swallows errors into silently-rejected JS promises. Methods: <code>get_state</code>, <code>save_workspace</code>, <code>delete_workspace</code>, <code>duplicate_workspace</code>, <code>move_workspace</code>, <code>reorder_workspace</code>, <code>save_pane</code>, <code>delete_pane</code>, <code>pick_directory</code>, <code>launch</code>, <code>log_client</code>, <code>get_diagnostics</code>, <code>export_logs</code>.</li><li><code>_normalize_slots()</code> — the wire-format adapter between the JS slot list and the on-disk shape (pads/trims to capacity, strips inherited models).</li><li><strong>Launch is threaded:</strong> validation is synchronous (bad input returns to JS instantly), but <code>backend.launch(...)</code> runs on a daemon thread; on a fleeting launch it ends with <code>os._exit(0)</code> (pywebview's <code>destroy()</code> is unreliable from a non-managed thread). See <a href="../decisions/0003-visual-composer-pywebview.md">ADR 0003</a>.</li></ul>
-<h3><code>web/builder.html</code></h3>
+<h3 id="web-builder-html"><code>web/builder.html</code></h3>
 <p>The entire GUI front-end — one self-contained file (inline HTML/CSS/JS, no external assets). A launchpad of workspace cards over a live composer; the slot editor is an inline side panel (<code>sideMode</code> ∈ <code>hint|slot|panes|paneform</code>). <code>const api = () =&gt; window.pywebview.api</code> is the single bridge accessor. JS errors (<code>window.onerror</code>, <code>unhandledrejection</code>, <code>console.error</code>) are forwarded to the Python log via <code>api.log_client</code>.</p>
 <hr>
-<h2>Entry points</h2>
-<table><thead><tr><th>File</th><th>Door</th><th>Does</th></tr></thead><tbody><tr><td><code>pyproject.toml</code></td><td>install</td><td><code>[project.scripts] terminal-launcher = "terminal_launcher.cli:main"</code> — the console script <code>pip</code>/<code>pipx</code> puts on <code>PATH</code>. The packaging source of truth (deps, package data).</td></tr><tr><td><code>__main__.py</code></td><td>CLI</td><td><code>python -m terminal_launcher</code> → <code>cli.main()</code>; the zero-install path from a checkout.</td></tr><tr><td><code>bin/terminal-launcher</code></td><td>shell</td><td>Legacy entry script (adds the repo to <code>sys.path</code>, then <code>cli.main()</code>). Still used by the <code>/restore</code> installers; slated for removal once they move to the console script.</td></tr><tr><td><code>app_main.py</code></td><td><code>.app</code></td><td>The py2app entry — <code>run()</code> straight into the GUI, bypassing argparse.</td></tr><tr><td><code>setup_py2app.py</code></td><td><code>.app</code> build</td><td>py2app-only build config (<code>python setup_py2app.py py2app</code>). Kept separate from <code>pyproject.toml</code> so a <code>pip install</code> never triggers a py2app build.</td></tr><tr><td><code>__init__.py</code></td><td>—</td><td>Package docstring + <code>__version__ = "1.4.0"</code>.</td></tr></tbody></table>
+<h2 id="entry-points">Entry points</h2>
+<div class="tablewrap"><table><thead><tr><th>File</th><th>Door</th><th>Does</th></tr></thead><tbody><tr><td><code>pyproject.toml</code></td><td>install</td><td><code>[project.scripts] terminal-launcher = "terminal_launcher.cli:main"</code> — the console script <code>pip</code>/<code>pipx</code> puts on <code>PATH</code>. The packaging source of truth (deps, package data).</td></tr><tr><td><code>__main__.py</code></td><td>CLI</td><td><code>python -m terminal_launcher</code> → <code>cli.main()</code>; the zero-install path from a checkout.</td></tr><tr><td><code>bin/terminal-launcher</code></td><td>shell</td><td>Legacy entry script (adds the repo to <code>sys.path</code>, then <code>cli.main()</code>). Still used by the <code>/restore</code> installers; slated for removal once they move to the console script.</td></tr><tr><td><code>app_main.py</code></td><td><code>.app</code></td><td>The py2app entry — <code>run()</code> straight into the GUI, bypassing argparse.</td></tr><tr><td><code>setup_py2app.py</code></td><td><code>.app</code> build</td><td>py2app-only build config (<code>python setup_py2app.py py2app</code>). Kept separate from <code>pyproject.toml</code> so a <code>pip install</code> never triggers a py2app build.</td></tr><tr><td><code>__init__.py</code></td><td>—</td><td>Package docstring + <code>__version__ = "1.4.0"</code>.</td></tr></tbody></table></div>
 <hr>
-<h2>Diagnostics</h2>
-<h3><code>diag.py</code></h3>
+<h2 id="diagnostics">Diagnostics</h2>
+<h3 id="diag-py"><code>diag.py</code></h3>
 <p><strong>Owns</strong> the single rotating log every layer writes to: <code>~/.config/terminal-launcher/terminal-launcher.log</code>.</p>
 <ul><li><code>setup()</code> — idempotent; attaches a <code>RotatingFileHandler</code> (512 KB × 2) + a stderr handler, and installs a <code>sys.excepthook</code> that logs uncaught exceptions as <code>UNCAUGHT</code>.</li><li><code>get_logger()</code> / <code>log_path()</code> / <code>read_tail(n=200)</code>.</li></ul>
 <p>Crucially, WebView JS errors are forwarded here over the bridge (<code>Api.log_client</code>), so a composer bug leaves a record instead of vanishing into the WebView console. Surfaced via the <code>logs</code> CLI verb and the GUI's reveal-log button.</p>

@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,35 +19,37 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>Tech Stack</h1>
+<h1 id="tech-stack">Tech Stack</h1>
 <p>A deliberately small stack. The core is <strong>stdlib-only</strong>; every third-party dependency buys exactly one capability and is isolated behind a seam so the rest of the code doesn't depend on it.</p>
-<h2>Language &amp; runtime</h2>
+<h2 id="language-runtime">Language &amp; runtime</h2>
 <ul><li><strong>Python 3.10+</strong> — uses <code>from __future__ import annotations</code>; developed on 3.14.</li><li><strong>Version</strong> — <code>terminal_launcher.__version__ = "1.4.0"</code> (<code>__init__.py</code>), mirrored in the py2app plist <code>CFBundleShortVersionString</code>.</li></ul>
-<h2>Dependencies (<code>requirements.txt</code>)</h2>
-<table><thead><tr><th>Package</th><th>Version</th><th>Buys</th><th>Needed for</th></tr></thead><tbody><tr><td><code>pywebview</code></td><td><code>&gt;=6.2</code></td><td>A native window hosting local HTML/JS, bridged to Python</td><td>The visual composer (<code>gui.py</code>)</td></tr><tr><td><code>iterm2</code></td><td><code>&gt;=2.7</code></td><td>The iTerm2 Python API (async)</td><td>The macOS terminal backend</td></tr></tbody></table>
+<h2 id="dependencies-requirements-txt">Dependencies (<code>requirements.txt</code>)</h2>
+<div class="tablewrap"><table><thead><tr><th>Package</th><th>Version</th><th>Buys</th><th>Needed for</th></tr></thead><tbody><tr><td><code>pywebview</code></td><td><code>&gt;=6.2</code></td><td>A native window hosting local HTML/JS, bridged to Python</td><td>The visual composer (<code>gui.py</code>)</td></tr><tr><td><code>iterm2</code></td><td><code>&gt;=2.7</code></td><td>The iTerm2 Python API (async)</td><td>The macOS terminal backend</td></tr></tbody></table></div>
 <p>Everything else is the <strong>standard library</strong>: <code>argparse</code>, <code>json</code>, <code>pathlib</code>, <code>subprocess</code>, <code>asyncio</code>, <code>ctypes</code>, <code>logging</code>, <code>shutil</code>, <code>shlex</code>, <code>platform</code>, <code>functools</code>.</p>
 <p><strong>The CLI and the Windows Terminal backend are stdlib-only</strong> — the Windows backend is pure <code>ctypes</code>, and <code>iterm2</code>/<code>pywebview</code> are imported <em>lazily inside functions</em>, so a machine that only uses the CLI + <code>wt</code> never needs the third-party packages.</p>
-<h2>What each third-party piece does — and why it</h2>
-<h3>pywebview — the visual composer</h3>
+<h2 id="what-each-third-party-piece-does-and-why-it">What each third-party piece does — and why it</h2>
+<h3 id="pywebview-the-visual-composer">pywebview — the visual composer</h3>
 <p>Hosts <code>web/builder.html</code> (a single self-contained HTML/CSS/JS file) in the OS-native WebView (WKWebView on macOS, WebView2 on Windows) and exposes a Python object as <code>window.pywebview.api.*</code>. <strong>No web server, no persistent process.</strong></p>
 <p><em>Why:</em> the composer is meant to be <em>fleeting</em> — appear, compose, launch, vanish. A long-running localhost server contradicts that, and heavier native toolkits (SwiftUI/Avalonia/Tauri) would mean a UI rewrite or a new build toolchain. pywebview reuses the existing HTML UI and the Python core with no new language. See <a href="../decisions/0003-visual-composer-pywebview.md">ADR 0003</a>. The bridge is detailed in <a href="module-reference.md#guipy">Module Reference</a>.</p>
-<h3>iterm2 — the macOS terminal backend</h3>
+<h3 id="iterm2-the-macos-terminal-backend">iterm2 — the macOS terminal backend</h3>
 <p>The official async Python API for iTerm2. <code>iterm2_backend.py</code> holds direct <code>Session</code> references to exactly the panes it creates, giving unambiguous per-pane control and native windows.</p>
 <p><em>Why:</em> WezTerm on macOS couldn't deliver deterministic placement of named panes (<code>--class</code> is X11/Wayland-only; its multi-window model made "control <em>this</em> window" ambiguous). iTerm2's API fixed that. Auth is via <strong>Automation</strong> permission (an AppleScript Apple Event obtains the API cookie) — lighter than the Accessibility grant an arbitrary-window placer would need. See <a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">ADR 0007</a>.</p>
-<h3>Windows Terminal (<code>wt</code>) — the Windows terminal backend</h3>
+<h3 id="windows-terminal-wt-the-windows-terminal-backend">Windows Terminal (<code>wt</code>) — the Windows terminal backend</h3>
 <p>Not a Python dependency — an <strong>external app</strong> (<code>wt.exe</code>) driven via <code>subprocess</code>, plus the Win32 API via <code>ctypes</code>. <code>windows_terminal_backend.py</code> spawns <code>wt -w new</code> per slot and positions each window with <code>SetWindowPos</code>.</p>
 <p><em>Why:</em> it's the native Windows terminal (ships with Windows 11) and gives real, separately-placeable OS windows — the same one-window-per-pane model iTerm2 gives on macOS. It has no per-pane text API, so <code>/color</code> is injected by focusing the window and pasting via the clipboard. See <a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md">ADR 0008</a>.</p>
-<h3>Claude Code (<code>claude</code>) — the payload</h3>
+<h3 id="claude-code-claude-the-payload">Claude Code (<code>claude</code>) — the payload</h3>
 <p>Not a dependency of the tool, but what every filled pane runs: <code>claude -n &lt;name&gt; --model &lt;model&gt;</code>. Both backends resolve it to an absolute path (<code>shutil.which("claude")</code>) because a Dock-launched <code>.app</code> inherits a minimal PATH.</p>
-<h2>Build &amp; test tooling</h2>
+<h2 id="build-test-tooling">Build &amp; test tooling</h2>
 <ul><li><strong>py2app</strong> — builds the macOS Dock <code>.app</code> (<code>setup.py</code>). Dev/packaging only.</li><li><strong>PyInstaller</strong> — builds the Windows <code>.exe</code> (<code>packaging/windows/</code>). Dev/packaging only. See <a href="build-packaging-testing.md">Build, Packaging &amp; Testing</a>.</li><li><strong>pytest</strong> — unit tests for the pure core (<code>layouts</code>, <code>model</code>, <code>config</code>). No terminal or GUI is exercised in tests.</li><li><strong>docs render</strong> — <code>docs/render.py</code> (stdlib-only) renders the Markdown docs to their paired HTML; there's no docs build system beyond it.</li></ul>
-<h2>The dependency-isolation rule</h2>
+<h2 id="the-dependency-isolation-rule">The dependency-isolation rule</h2>
 <p>The stack stays swappable because every external piece sits behind a seam:</p>
 <ul><li><code>iterm2</code> and the Windows Terminal backend are reached <strong>only</strong> through <code>backend.py</code>'s three-function contract — the core and front-ends import neither.</li><li><code>pywebview</code> is imported <strong>only</strong> inside <code>gui.py</code> (and lazily), so the CLI never loads it.</li><li><code>iterm2</code> is imported lazily inside <code>iterm2_backend</code> functions — which is also why <code>setup.py</code> must force it into the py2app graph explicitly.</li></ul>
 </main></body></html>

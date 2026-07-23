@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,15 +19,17 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>Architecture</h1>
+<h1 id="architecture">Architecture</h1>
 <p>Terminal Launcher is a <strong>thin Python core</strong> with two interchangeable <strong>front-ends</strong> on top and two interchangeable <strong>terminal backends</strong> underneath, joined by a single platform-agnostic seam. The core never touches a terminal directly and never does window math; the backends never touch the config.</p>
-<h2>The layers</h2>
+<h2 id="the-layers">The layers</h2>
 <pre><code>  ┌──────────────────────── Front-ends ────────────────────────┐
   │   cli.py  (argparse + wizard)      gui.py  (pywebview)      │
   │        headless / scriptable       web/builder.html         │
@@ -56,11 +59,11 @@ strong{font-weight:650}
                   \                    /
                    diag.py  ← one rotating log shared by every layer</code></pre>
 <p>Every backend satisfies the <strong>same three-function contract</strong> — <code>available()</code>, <code>describe()</code>, <code>launch()</code> — so the layers above are backend-blind. Both realize one uniform model: <strong>one real OS window per pane, placed by geometry, with real desktop gaps for empty slots.</strong> Details in <a href="backends.md">Backends</a>.</p>
-<h2>End-to-end: what <code>launch Docs</code> does</h2>
+<h2 id="end-to-end-what-launch-docs-does">End-to-end: what <code>launch Docs</code> does</h2>
 <ol><li><strong>Entry.</strong> <code>python -m terminal_launcher</code> → <code>cli.main()</code> parses args and dispatches <code>cmd_launch</code>. (The <code>.app</code>/<code>.exe</code> bundle enters via <code>app_main.py</code> straight into the GUI; the GUI's Launch button ends up in the same core calls.)</li><li><strong>Load + find.</strong> <code>config.load(path)</code> reads <code>workspaces.json</code> and backfills defaults; <code>model.find_workspace(config, "Docs")</code> does a case-insensitive lookup.</li><li><strong>Resolve.</strong> <code>model.resolve_workspace(config, ws)</code> returns a <strong>capacity-shaped</strong> list of <code>ResolvedSlot</code>s — always <code>LAYOUT_CAPACITY[layout]</code> of them, each either filled (final <code>name/color/target/model</code>, with <strong>model precedence</strong> applied: slot → pane → global) or marked <code>empty</code>.</li><li><strong>Hand off to the seam.</strong> <code>backend.launch(layout, slots, …)</code>. <code>backend._impl()</code> selects the platform backend fresh on every call (<code>Darwin</code> → iTerm2, <code>Windows</code> → Windows Terminal).</li><li><strong>Backend realizes it.</strong> Each backend places one real OS window per <em>filled</em> slot at its slot rectangle (<code>_slot_rects(layout, flip)</code>); empty slots are simply not spawned, leaving real desktop gaps. A full quad is four windows in four quadrants, not one split-pane window.</li><li><strong>iTerm2</strong> — creates a window per slot via the Python API, <code>async_set_frame</code> to the Cocoa rect.</li><li><strong>Windows Terminal</strong> — spawns a <code>wt</code> window per slot, finds it, <code>SetWindowPos</code> to the Win32 rect (with DPI + DWM-border compensation).</li><li><strong>Apply identity.</strong> Each window's title/name is set and — if <code>inject_color</code> — <code>/color &lt;name&gt;</code> is delivered (iTerm2: <code>send-text</code>; Windows Terminal: focus + clipboard paste; see <a href="backends.md">Backends</a>).</li><li><strong>Log throughout.</strong> Every step, and any uncaught exception or forwarded WebView JS error, lands in the single <code>diag.py</code> rotating log.</li></ol>
-<h2>The key seams (where responsibilities are cut)</h2>
-<table><thead><tr><th>Seam</th><th>Boundary</th><th>Why it's there</th></tr></thead><tbody><tr><td><strong>Front-end ↔ core</strong></td><td>The plain <code>config</code> dict + <code>config.save</code>; <code>model.resolve_workspace</code>.</td><td>Lets the CLI and GUI stay thin and never diverge — one source of truth.</td></tr><tr><td><strong>Core ↔ backend</strong></td><td><code>backend.launch(layout, slots, …)</code> with <code>ResolvedSlot</code>s.</td><td>The core is platform-agnostic; a new terminal is one new module (<a href="../decisions/0001-terminal-layer-and-core.md">ADR 0001</a>).</td></tr><tr><td><strong>Abstract layout ↔ geometry</strong></td><td>Each backend's <code>_slot_rects(layout, flip)</code> → per-slot rectangles from the OS work area.</td><td>Terminal-agnostic placement; the same logical layout on both platforms (<a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md">ADR 0008</a>).</td></tr></tbody></table>
-<h2>Why the design looks like this</h2>
+<h2 id="the-key-seams-where-responsibilities-are-cut">The key seams (where responsibilities are cut)</h2>
+<div class="tablewrap"><table><thead><tr><th>Seam</th><th>Boundary</th><th>Why it's there</th></tr></thead><tbody><tr><td><strong>Front-end ↔ core</strong></td><td>The plain <code>config</code> dict + <code>config.save</code>; <code>model.resolve_workspace</code>.</td><td>Lets the CLI and GUI stay thin and never diverge — one source of truth.</td></tr><tr><td><strong>Core ↔ backend</strong></td><td><code>backend.launch(layout, slots, …)</code> with <code>ResolvedSlot</code>s.</td><td>The core is platform-agnostic; a new terminal is one new module (<a href="../decisions/0001-terminal-layer-and-core.md">ADR 0001</a>).</td></tr><tr><td><strong>Abstract layout ↔ geometry</strong></td><td>Each backend's <code>_slot_rects(layout, flip)</code> → per-slot rectangles from the OS work area.</td><td>Terminal-agnostic placement; the same logical layout on both platforms (<a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md">ADR 0008</a>).</td></tr></tbody></table></div>
+<h2 id="why-the-design-looks-like-this">Why the design looks like this</h2>
 <p>The shape follows from the ADRs:</p>
 <ul><li>A <strong>thin core behind a backend seam</strong> (<a href="../decisions/0001-terminal-layer-and-core.md">0001</a>) is what let the macOS layer swap to iTerm2 (<a href="../decisions/0007-iterm2-backend-and-real-gap-layouts.md">0007</a>) and a native Windows Terminal backend be added (<a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md">0008</a>) as single new modules, without touching the core or front-ends.</li><li><strong>One window per pane, self-placed by geometry</strong> on both platforms (<a href="../decisions/0008-one-window-per-pane-and-windows-terminal-backend.md">0008</a>): neither OS lets you invoke native snapping programmatically without synthetic input or the Accessibility permission, so each backend places its own windows at the work-area rectangles — deterministic and permission-light.</li><li><strong>Identity injection</strong> targets a specific window/session, so on macOS it needs no Accessibility permission (<a href="../decisions/0002-identity-injection.md">0002</a>); on Windows it focuses the window and pastes via the clipboard (no <code>send-text</code> equivalent exists for <code>wt</code>).</li><li>The <strong>visual composer is a fleeting pywebview window</strong> over the same config, not a server (<a href="../decisions/0003-visual-composer-pywebview.md">0003</a>).</li></ul>
 <p>For the full decision history and current live-vs-deferred state, read <a href="../decisions/"><code>../decisions/</code></a>.</p>

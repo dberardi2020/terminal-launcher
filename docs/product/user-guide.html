@@ -8,6 +8,7 @@ body{background:var(--bg);color:var(--fg);font:16px/1.65 -apple-system,BlinkMacS
 h1{font-size:2rem;line-height:1.2;margin:0 0 .3em;letter-spacing:-.02em}
 h2{font-size:1.35rem;margin:2.2em 0 .5em;padding-bottom:.25em;border-bottom:1px solid var(--line)}
 h3{font-size:1.08rem;margin:1.8em 0 .4em}
+h1,h2,h3,h4,h5,h6{scroll-margin-top:1.2em}
 p{margin:.7em 0}
 a{color:var(--link);text-decoration:none;border-bottom:1px solid transparent}
 a:hover{border-bottom-color:var(--link)}
@@ -18,54 +19,56 @@ ul,ol{padding-left:1.4em;margin:.7em 0}
 li{margin:.3em 0}
 blockquote{margin:1em 0;padding:.6em 1.1em;border-left:3px solid var(--accent);background:var(--code-bg);border-radius:0 6px 6px 0;color:var(--muted)}
 blockquote strong{color:var(--fg)}
-table{border-collapse:collapse;width:100%;margin:1.1em 0;font-size:.92em;display:block;overflow-x:auto}
+.tablewrap{overflow-x:auto;margin:1.1em 0}
+table{border-collapse:collapse;width:100%;font-size:.92em}
 th,td{border:1px solid var(--line);padding:.5em .7em;text-align:left;vertical-align:top}
+td:first-child{white-space:nowrap}
 th{background:var(--code-bg);font-weight:600}
 hr{border:none;border-top:1px solid var(--line);margin:2em 0}
 strong{font-weight:650}
 </style></head><body><main class="wrap">
-<h1>User Guide</h1>
+<h1 id="user-guide">User Guide</h1>
 <p>From nothing to a tiled, one-command Claude Code workspace.</p>
-<h2>1. Requirements</h2>
+<h2 id="1-requirements">1. Requirements</h2>
 <ul><li><strong>Python 3.10+</strong> (developed on 3.14).</li><li><strong>A terminal backend</strong> — the layer that spawns and tiles the panes:</li><li><strong>macOS → <a href="https://iterm2.com">iTerm2</a></strong> — <code>brew install --cask iterm2</code>.</li><li><strong>Windows → <a href="https://aka.ms/terminal">Windows Terminal</a></strong> — <code>winget install Microsoft.WindowsTerminal</code>.</li><li><strong>Claude Code</strong> (<code>claude</code>) on your <code>PATH</code> — what each filled pane runs.</li></ul>
 <p>See <a href="platforms-and-status.md">Platforms &amp; Status</a> for details and permissions.</p>
-<h2>2. Install</h2>
+<h2 id="2-install">2. Install</h2>
 <p>Install the command with <a href="https://pipx.pypa.io">pipx</a> — same on macOS, Linux, and Windows:</p>
 <pre><code>pipx install git+https://github.com/dberardi2020/terminal-launcher.git</code></pre>
 <p>That puts <code>terminal-launcher</code> on your <code>PATH</code> in an isolated environment. Prefer no install at all? Clone the repo and run it as a module — <code>python3 -m terminal_launcher …</code> (<code>py -m terminal_launcher …</code> on Windows).</p>
 <p>On macOS you can also build a double-clickable <strong>Dock app</strong> for the visual composer (py2app) — see <a href="../../packaging/README.md"><code>packaging/README.md</code></a>.</p>
-<h2>3. Create your config</h2>
+<h2 id="3-create-your-config">3. Create your config</h2>
 <pre><code>terminal-launcher init</code></pre>
 <p>This seeds a starter config at <code>~/.config/terminal-launcher/workspaces.json</code> from the bundled example — a few sample panes and workspaces to edit. This one JSON file is the single source of truth for your panes, workspaces, and settings.</p>
-<h2>4. Compose a workspace</h2>
-<h3>The three paths</h3>
+<h2 id="4-compose-a-workspace">4. Compose a workspace</h2>
+<h3 id="the-three-paths">The three paths</h3>
 <p>Everything you do with Terminal Launcher is one of three:</p>
-<table><thead><tr><th>Path</th><th>Command</th><th>What happens</th></tr></thead><tbody><tr><td><strong>Fast</strong></td><td><code>terminal-launcher launch Docs</code></td><td>The saved arrangement opens. The everyday case.</td></tr><tr><td><strong>Compose</strong></td><td><code>terminal-launcher new</code></td><td>Pick a layout → assign each slot → it saves, then previews.</td></tr><tr><td><strong>Tweak</strong></td><td><code>terminal-launcher edit Docs</code></td><td>Reassign a slot or change the layout → it persists.</td></tr></tbody></table>
+<div class="tablewrap"><table><thead><tr><th>Path</th><th>Command</th><th>What happens</th></tr></thead><tbody><tr><td><strong>Fast</strong></td><td><code>terminal-launcher launch Docs</code></td><td>The saved arrangement opens. The everyday case.</td></tr><tr><td><strong>Compose</strong></td><td><code>terminal-launcher new</code></td><td>Pick a layout → assign each slot → it saves, then previews.</td></tr><tr><td><strong>Tweak</strong></td><td><code>terminal-launcher edit Docs</code></td><td>Reassign a slot or change the layout → it persists.</td></tr></tbody></table></div>
 <p>The rest of this section is the compose and tweak paths; <a href="#5-launch">§5</a> is the fast one.</p>
-<h3>Two ways to build</h3>
+<h3 id="two-ways-to-build">Two ways to build</h3>
 <p>You have two equivalent ways to compose. Both read and write the same config.</p>
-<h3>The terminal (scriptable)</h3>
+<h3 id="the-terminal-scriptable">The terminal (scriptable)</h3>
 <pre><code>terminal-launcher new          # compose + save a new workspace
 terminal-launcher edit Docs    # load an existing one, change it, persist
 terminal-launcher pane-new     # add a new reusable pane</code></pre>
 <p>Each is prompt-driven: pick a layout, assign a pane (and optionally a model) to each slot, and it <strong>writes back to the config</strong> when you're done.</p>
-<h3>The visual composer</h3>
+<h3 id="the-visual-composer">The visual composer</h3>
 <pre><code>terminal-launcher gui</code></pre>
 <p>A native window opens (maximized). At the top is a <strong>launchpad</strong> of workspace cards — each with a <strong>Launch</strong> button and a <code>⋯</code> menu (Rename · Duplicate · Delete · jump to front/end). Below is the <strong>composer</strong>:</p>
 <ol><li>Pick a layout — <strong>Single · Split · Combo · Quad</strong>.</li><li><strong>Click a slot</strong> to fill it. An inline side panel opens (<em>“Editing ‹position›”</em>) with a <strong>click-to-fill</strong> list of your panes — click one to assign it immediately — and <strong>model chips</strong>, including a <strong>Default</strong> chip that uses the pane's own model.</li><li>Manage panes inline in that same panel (the <code>⚙ Panes</code> button opens the full registry); create and edit panes without leaving the composer.</li><li>Use the footer verbs — <strong>Launch · Save as new · Update · Revert · Clear</strong> — to persist or run the composition.</li></ol>
 <p>When you launch from the composer, it hands off and <strong>closes behind you</strong>.</p>
-<h2>5. Launch</h2>
+<h2 id="5-launch">5. Launch</h2>
 <p>The fast path, once a workspace exists:</p>
 <pre><code>terminal-launcher launch Docs</code></pre>
 <p>Every pane opens at once, tiled in its layout, each in its target directory running Claude with its assigned model. Useful flags:</p>
 <ul><li><code>--dry-run</code> — print the launch plan without opening anything.</li><li><code>--inject-color</code> — type <code>/color &lt;name&gt;</code> into each session so the Claude prompt bar carries the pane's color (see <em>Identity in-session</em> below).</li></ul>
-<h2>6. Command reference</h2>
-<table><thead><tr><th>Verb</th><th>What it does</th></tr></thead><tbody><tr><td><code>list</code></td><td>List saved workspaces.</td></tr><tr><td><code>panes</code></td><td>List configured panes.</td></tr><tr><td><code>preview &lt;name&gt;</code></td><td>Text preview of a workspace's layout.</td></tr><tr><td><code>launch &lt;name&gt;</code></td><td>Launch a workspace. <code>--dry-run</code> prints the plan; <code>--inject-color</code> injects <code>/color</code>.</td></tr><tr><td><code>new</code></td><td>Interactively compose a <strong>new</strong> workspace and save it.</td></tr><tr><td><code>edit &lt;name&gt;</code></td><td>Interactively edit an existing workspace.</td></tr><tr><td><code>delete &lt;name&gt;</code></td><td>Remove a workspace.</td></tr><tr><td><code>pane-new</code></td><td>Interactively add a new pane (terminal identity).</td></tr><tr><td><code>gui</code></td><td>Open the visual composer.</td></tr><tr><td><code>init</code></td><td>Create a starter config from the bundled example.</td></tr><tr><td><code>restore</code></td><td>Re-apply this pane's <code>/color</code> + <code>/rename</code> after Claude Code's <code>/clear</code> (<code>--detect-only</code> to check without injecting).</td></tr></tbody></table>
-<h2>7. Identity in-session</h2>
+<h2 id="6-command-reference">6. Command reference</h2>
+<div class="tablewrap"><table><thead><tr><th>Verb</th><th>What it does</th></tr></thead><tbody><tr><td><code>list</code></td><td>List saved workspaces.</td></tr><tr><td><code>panes</code></td><td>List configured panes.</td></tr><tr><td><code>preview &lt;name&gt;</code></td><td>Text preview of a workspace's layout.</td></tr><tr><td><code>launch &lt;name&gt;</code></td><td>Launch a workspace. <code>--dry-run</code> prints the plan; <code>--inject-color</code> injects <code>/color</code>.</td></tr><tr><td><code>new</code></td><td>Interactively compose a <strong>new</strong> workspace and save it.</td></tr><tr><td><code>edit &lt;name&gt;</code></td><td>Interactively edit an existing workspace.</td></tr><tr><td><code>delete &lt;name&gt;</code></td><td>Remove a workspace.</td></tr><tr><td><code>pane-new</code></td><td>Interactively add a new pane (terminal identity).</td></tr><tr><td><code>gui</code></td><td>Open the visual composer.</td></tr><tr><td><code>init</code></td><td>Create a starter config from the bundled example.</td></tr><tr><td><code>restore</code></td><td>Re-apply this pane's <code>/color</code> + <code>/rename</code> after Claude Code's <code>/clear</code> (<code>--detect-only</code> to check without injecting).</td></tr></tbody></table></div>
+<h2 id="7-identity-in-session">7. Identity in-session</h2>
 <p>A launched pane carries its identity three ways:</p>
 <ul><li><strong>Session name</strong> — <code>claude -n &lt;name&gt;</code>.</li><li><strong>Pane title</strong> — the iTerm2 session name (macOS) or the <code>wt</code> tab title (Windows).</li><li><strong>Color</strong> <em>(optional)</em> — <code>/color &lt;name&gt;</code> injected into the Claude prompt bar, via <code>--inject-color</code> or <code>settings.injectColor</code>. Injection targets a specific pane directly, so it needs no Accessibility permission.</li></ul>
 <p><strong>After <code>/clear</code>:</strong> Claude Code's <code>/clear</code> (and reconnecting) resets the in-session colour and name. Run <strong><code>/restore</code></strong> in the pane to re-apply them — it detects which pane you are by directory and re-issues <code>/color</code> + <code>/rename</code>. Install the slash command with <code>./integrations/claude-code/install.sh</code> (it runs <code>terminal-launcher restore</code>). See <a href="../decisions/0009-restore-pane-identity.md">ADR 0009</a>.</p>
-<h2>8. Configuration essentials</h2>
+<h2 id="8-configuration-essentials">8. Configuration essentials</h2>
 <p>The config resolves in this order:</p>
 <ol><li><code>--config &lt;path&gt;</code> or the <code>TERMINAL_LAUNCHER_CONFIG</code> env var</li><li><code>$XDG_CONFIG_HOME/terminal-launcher/workspaces.json</code></li><li><code>~/.config/terminal-launcher/workspaces.json</code></li></ol>
 <p><strong>Model precedence</strong> when launching a slot: <strong>slot override → pane default → global default</strong> (<code>settings.defaultModel</code>). Colors come from a named set (blue, orange, red, purple, green, cyan, pink, gray). For the full JSON shape, see <a href="../../workspaces.example.json"><code>workspaces.example.json</code></a>, and for the field-by-field schema, the Technical <a href="../technical/data-model-and-config.md">Data Model &amp; Config</a> doc.</p>
