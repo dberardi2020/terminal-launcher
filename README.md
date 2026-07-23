@@ -196,6 +196,16 @@ Two composers over the same config:
   server): a launchpad of workspace cards, a click-a-cell slot editor, and inline pane
   management. It opens maximized, and on a fleeting launch it closes behind you.
 
+## Roadmap
+
+Shipped and stable on macOS (iTerm2) and Windows (Windows Terminal). What's deferred, not scheduled:
+
+- **Multi-monitor placement** — slots derive from the primary display's work area, so a workspace always lands there.
+- **Heterogeneous panes** — tiling a browser or file manager alongside the Claude terminals; needs a general OS-window placement layer.
+- **Directory-owned identity** — letting a pane's identity travel with its repo rather than live only in this config.
+
+Full detail and rationale in [Platforms & Status](docs/product/platforms-and-status.md#deferred--not-yet-built).
+
 ## Documentation
 
 Full docs live in [`docs/`](docs/README.md):
