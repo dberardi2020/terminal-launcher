@@ -62,8 +62,6 @@ resulting layout. **An empty slot never launches a blank shell** — it's simply
   alongside Claude terminals. This needs a general OS-window placement layer. Direction
   recorded in [ADR 0004](../decisions/0004-heterogeneous-panes-and-window-placement.md); not
   scheduled.
-- **Directory-owned identity** — whether a pane's identity should travel with its repo
-  rather than live only in this config. Open question.
 - **Packaging** — a double-clickable build of the visual composer exists for macOS (py2app,
   in [`packaging/`](../../packaging/)) and Windows (PyInstaller, in
   [`packaging/windows/`](../../packaging/windows/)); an unsigned macOS bundle may re-prompt
