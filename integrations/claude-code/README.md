@@ -55,7 +55,7 @@ The slash command just runs the packaged `terminal-launcher restore` (as
 `python -m terminal_launcher restore`) with this checkout's venv python. That command
 splits the work the same way the rest of the tool does:
 
-- **Detection is cross-platform** (`src/terminal_launcher/restore.py`): it matches the current
+- **Detection is cross-platform** (`terminal_launcher/restore.py`): it matches the current
   directory against each pane's `target` in `~/.config/terminal-launcher/workspaces.json`
   (longest match wins), remembering the match in a per-session sentinel so it still works
   after you `cd` away.

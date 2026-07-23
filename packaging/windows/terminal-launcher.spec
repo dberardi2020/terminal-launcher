@@ -15,9 +15,7 @@ datas, binaries, hiddenimports = collect_all('webview')
 
 # The GUI reads terminal_launcher/web/builder.html off disk via __file__, so it must be
 # shipped as data (an importable package alone doesn't carry non-.py files reliably).
-# Source is under src/ (src layout); the in-bundle destination stays terminal_launcher/web
-# so the runtime __file__ path is unchanged.
-datas += [('src/terminal_launcher/web', 'terminal_launcher/web')]
+datas += [('terminal_launcher/web', 'terminal_launcher/web')]
 
 # Optional icon — PyInstaller needs a Windows .ico. Use it if present, else no icon.
 _icon = os.path.join('packaging', 'windows', 'app.ico')
@@ -25,7 +23,7 @@ icon = _icon if os.path.exists(_icon) else None
 
 a = Analysis(
     ['app_main.py'],
-    pathex=['src'],   # src layout: terminal_launcher lives under src/
+    pathex=[],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,
