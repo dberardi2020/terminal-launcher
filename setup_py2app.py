@@ -14,8 +14,15 @@ Kept separate from `pyproject.toml` (the pip/pipx packaging source of truth) so 
 `pip install` never drags in a py2app build — see `_Py2appDistribution` for the one
 place the two still collide.
 """
+import os
+import sys
+
 from setuptools import setup
 from setuptools.dist import Distribution
+
+# src layout: the `terminal_launcher` package lives under src/. Put it on the path so
+# py2app's modulegraph can import and scan it during the build without an editable install.
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "src"))
 
 
 class _Py2appDistribution(Distribution):

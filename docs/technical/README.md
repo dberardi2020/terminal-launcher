@@ -22,7 +22,7 @@ Layered: **front-ends** → **core** → **backend seam** → **terminal backend
 ```
 bin/terminal-launcher          # executable entry point (symlink onto PATH)
 app_main.py                    # .app / Dock entry → straight to GUI
-terminal_launcher/
+src/terminal_launcher/         # the package (src layout)
   __main__.py  __init__.py     # CLI entry (python -m …) · version
   cli.py                       # argparse + interactive composer wizard
   gui.py                       # visual composer (pywebview) + JS↔Python bridge

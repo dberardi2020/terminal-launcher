@@ -38,6 +38,7 @@ Homepage = "https://github.com/dberardi2020/terminal-launcher"
 Issues = "https://github.com/dberardi2020/terminal-launcher/issues"
 
 [tool.setuptools]
+package-dir = { "" = "src" }
 packages = ["terminal_launcher"]
 
 # The composer reads web/builder.html off disk via __file__, so it must ship as package

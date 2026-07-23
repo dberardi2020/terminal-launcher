@@ -32,7 +32,7 @@ strong{font-weight:650}
 <p>~2,000 lines of Python across 11 modules, plus one self-contained HTML/JS GUI file. Layered: <strong>front-ends</strong> → <strong>core</strong> → <strong>backend seam</strong> → <strong>terminal backends</strong>.</p>
 <pre><code>bin/terminal-launcher          # executable entry point (symlink onto PATH)
 app_main.py                    # .app / Dock entry → straight to GUI
-terminal_launcher/
+src/terminal_launcher/         # the package (src layout)
   __main__.py  __init__.py     # CLI entry (python -m …) · version
   cli.py                       # argparse + interactive composer wizard
   gui.py                       # visual composer (pywebview) + JS↔Python bridge
